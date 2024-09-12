@@ -1,0 +1,60 @@
+Package: scrattch.patchseq
+Title: Generalized Allen Institute patchseq processing
+Version: 0.1
+Authors@R: 
+    person(given = "Nelson",
+           family = "Johansen",
+           role = c("aut", "cre"),
+           email = "nelson.johansen@alleninstitute.org")
+    person(given = "Jeremy",
+           family = "Miller",
+           role = c("aut", "cre"),
+           email = "jeremy.miller@alleninstitute.org")
+    person(given = "Changkyu",
+            family = "Lee",
+            role = c("aut", "cre"),
+            email = "changkyul@alleninstitute.org")
+    person(given = "Inkar",
+        family = "Kapen",
+        role = c("aut", "cre"),
+        email = "inkar.kapen@alleninstitute.org")
+Description: ADD
+License: GPL-3
+Depends: feather,
+    anndata,
+    dplyr,
+    dendextend,
+    viridis,
+    feather,
+    tibble,
+    Matrix,
+    MatrixExtra,
+    MatrixGenerics,
+    foreach,
+    pvclust,
+    scrattch.io,
+    scrattch.hicat,
+    scrattch.bigcat,
+    scrattch.vis,
+    scrattch.taxonomy,
+    mfishtools,
+    patchseqtools,
+    patchSeqQC,
+    Seurat,
+    cowplot,
+    umap, 
+    arrow,
+    BiocNeighbors,
+    RANN,
+    jsonlite
+Suggests: knitr,
+    rmarkdown, 
+    testthat,
+    future,
+    parallel,
+    doMC
+Encoding: UTF-8
+LazyData: true
+VignetteBuilder: knitr
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.2
