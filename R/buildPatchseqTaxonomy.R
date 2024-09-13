@@ -53,7 +53,6 @@ buildPatchseqTaxonomy = function(AIT.anndata,
   if(mode.name %in% names(AIT.anndata$uns$filter)){ print(paste0("Mode ", mode.name, " already in Taxonomy, you will be overwriting the previous mode files.")) }
 
   ## Create the required files for patchSeqQC and determine offtarget cells
-  if(!is.element("counts", names(AIT.anndata$layers))){stop("`counts` must exist in AIT.anndata$layers, check taxonomy.")}
   if(!is.element(subclass.column, colnames(AIT.anndata$obs))){stop(paste(subclass.column,"is not a column in the metadata data frame."))}
   if(!is.element(class.column, colnames(AIT.anndata$obs))){stop(paste(class.column,"is not a column in the metadata data frame."))}
   if(!dir.exists(file.path(taxonomyDir))){"Specified taxonomy folder does not exist."}
@@ -75,7 +74,8 @@ buildPatchseqTaxonomy = function(AIT.anndata,
   kpSamp2  = kpSamp2 & goodSamp            # For back-compatibility; usually not used
   annoQC   = metadata[kpSamp2,]
   annoQC$subclass_label = make.names(annoQC$subclass_label)
-  datQC    = as.matrix(Matrix::t(AIT.anndata$layers["counts"])[,kpSamp2])
+  datQC    = as.matrix(Matrix::t(AIT.anndata$raw$X))[,kpSamp2]
+  colnames(datQC) = AIT.anndata$obs_names[kpSamp2]; rownames(datQC) = AIT.anndata$var_names
 
   ## Define class and subclass labels
   ## --- We wrap on-target types by class but retain off-target types by subclass
@@ -98,8 +98,13 @@ buildPatchseqTaxonomy = function(AIT.anndata,
 
   ## Filter out off target cells along with additional cells beyond those subsampled
   AIT.anndata$uns$filter[[mode.name]] = is.element(metadata$class_label, off.target.types) | is.element(metadata$subclass_label, off.target.types)
-  AIT.anndata$uns$filter[[mode.name]] = !((!AIT.anndata$uns$filter[[mode.name]])&((subsampleCells(metadata$cluster_label,subsample)))) # NEW, for subsampling
-  
+  AIT.anndata$uns$filter[[mode.name]] = !((!AIT.anndata$uns$filter[[mode.name]]) & ((subsampleCells(metadata$cluster_label,subsample)))) # NEW, for subsampling
+
+  ## Filter stats files if they exist
+  AIT.anndata$uns$stats[[mode.name]][["medianExpr"]] = AIT.anndata$uns$stats[["standard"]][["medianExpr"]][,unique(metadata$cluster_label[!AIT.anndata$uns$filter[[mode.name]]])]
+  AIT.anndata$uns$stats[[mode.name]][["features"]] = AIT.anndata$uns$stats[["standard"]]$features
+  AIT.anndata$uns$stats[[mode.name]][["clusters"]] = unique(metadata$cluster_label[!AIT.anndata$uns$filter[[mode.name]]])
+
   ## Save patchseqQC information to uns
   AIT.anndata$uns$QC_markers[[mode.name]] = list("allMarkers" = allMarkers,
                                                   "markers" = markers,

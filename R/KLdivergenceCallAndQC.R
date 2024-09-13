@@ -64,7 +64,6 @@ compute_KLdiv <- function(query_probabilities, reference_probabilities, select.c
 tree_quality_call <- function(AIT.anndata, query.mapping){
   
   ## NEED TO ADD ALL THE TESTS HERE 
-  
   memb.ref   = as.matrix(reticulate::py_to_r(AIT.anndata$uns$memb[[AIT.anndata$uns$mode]]$memb.ref))
   map.df.ref = reticulate::py_to_r(AIT.anndata$uns$memb[[AIT.anndata$uns$mode]]$map.df.ref)
   select.cl  = intersect(colnames(memb.ref),unique(AIT.anndata$obs$cluster_label))
@@ -81,7 +80,7 @@ tree_quality_call <- function(AIT.anndata, query.mapping){
                                  t(apply(tree_memb,1,function(x) -sort(-x)[1:2])),
                                  t(apply(kldiv,1,function(x) sort(x)[1:2]))))
   colnames(results) <- c("Tree_first_cor","Tree_first_bt","Tree_second_bt","Tree_first_KL","Tree_second_KL")
-  
+  ##
   results <- results %>% 
     rownames_to_column("id") %>%
     mutate(Tree_not_finall_call = ifelse(Tree_first_cor > 0.5  & Tree_first_KL < 2, "Good", "PoorQ")) %>%

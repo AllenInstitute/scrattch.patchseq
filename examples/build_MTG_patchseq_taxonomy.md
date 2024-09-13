@@ -54,6 +54,7 @@ This code block loads the scrattch.taxonomy library, and then calculates variabl
 #devtools::install_github("AllenInstitute/scrattch.taxonomy", ref = "KL_div")
 suppressPackageStartupMessages({
   library(scrattch.taxonomy)
+  library(scrattch.patchseq)
 })
 
 ## Compute top 1000 binary marker genes for clusters

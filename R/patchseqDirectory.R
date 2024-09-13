@@ -34,7 +34,7 @@ buildMappingDirectory = function(AIT.anndata,
 ){
 
   ## Gather mapping results from S4 class
-  mapping.results = getMappingResults(query.mapping)
+  mapping.results = getMappingResults(query.mapping, scores=TRUE)
   
   ## Checks
   if(!all(colnames(query.data) == rownames(query.metadata))){stop("Colnames of `query.data` and rownames of `query.metadata` do not match.")}
@@ -77,7 +77,7 @@ buildMappingDirectory = function(AIT.anndata,
   ## Convert query.data to CPM
   if(is.element("data.frame",class(query.data))){stop("`query.data` should be a matrix or a sparse matrix, not a data.frame.")}
   query.cpm <- cpm(query.data)
-  sample_id <- colnames(query.cpm); query.metadata$sample_id = sample_id
+  sample_id <- colnames(query.cpm); query.metadata$sample_id = sample_id; query.metadata$cell_id = sample_id
   gene      <- rownames(query.cpm)
 
   ##
@@ -200,8 +200,8 @@ buildMappingDirectory = function(AIT.anndata,
   write_feather(meta.data, file.path(mappingFolder,"anno.feather"))
   
   ## Project mapped data into existing umap (if it exists) or generate new umap otherwise
-  ref.umap     <- as.matrix(AIT.anndata$obsm[["umap"]][,colnames(AIT.anndata$obsm[["umap"]])!="sample_id"])
-  rownames(ref.umap) <- rownames(AIT.anndata$obsm[["umap"]])
+  ref.umap     <- as.matrix(AIT.anndata$obsm[["X_umap"]][,colnames(AIT.anndata$obsm[["X_umap"]])!="sample_id"])
+  rownames(ref.umap) <- rownames(AIT.anndata$obsm[["X_umap"]])
   ref.umap[is.na(ref.umap)] <- 0
   
   ##

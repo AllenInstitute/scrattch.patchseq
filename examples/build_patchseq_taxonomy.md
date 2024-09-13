@@ -17,6 +17,7 @@ In this tutorial we demonstrate how to setup a patchseq Shiny taxonomy using scr
 ## Load libraries
 library(scrattch.taxonomy)
 library(scrattch.mapping)
+library(scrattch.patchseq)
 library(tasic2016data)
 
 ## Load in the tasic2016 data and wrangle as a query data set.
@@ -93,9 +94,10 @@ query.mapping = taxonomy_mapping(AIT.anndata= AIT.anndata,
                                   corr.map   = TRUE, # Flags for which mapping algorithms to run
                                   tree.map   = TRUE, 
                                   seurat.map = FALSE, 
+                                  hierarchical.map = FALSE, ## Not that this will not work correctly with the patchseq mode. TODO.
                                   label.cols = c("cluster_label", "broad_type_label")) # Columns to map against from AIT.anndata$obs
 ## If you want the mapping data.frame from the S4 mappingClass
-mapping.results = getMappingResults(query.mapping)
+mapping.results = getMappingResults(query.mapping, scores=FALSE)
 ```
 
 ### Determine patchseq contamination with PatchseqQC:
