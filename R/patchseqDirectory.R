@@ -8,6 +8,7 @@
 #' @param doPatchseqQC Boolean indicating whether patch-seq QC metrics should be calculated (default) or not.
 #' @param metadata_names An optional named character vector where the vector NAMES correspond to columns in the metadata matrix and the vector VALUES correspond to how these metadata should be displayed in Shiny. This is used for writing the desc.feather file later.
 #' @param min.confidence Probability below which a cell cannot be assigned to a cell type (default 0.7).  In other words, if no cell types have probabilities greater than resolution.index, then the assigned cluster will be an internal node of the dendrogram. 
+#' @param return.metrics If TRUE (default=FALSE) will return an updated query.metadata data frame with additional metrics calculated as part of this function. Otherwise, these values are available in 'anno.feather'.
 #' @param verbose Should detail logging be printed to the screen?
 #' 
 #' This function writes files to the mappingFolder directory for visualization with molgen-shiny tools  
@@ -30,6 +31,7 @@ buildMappingDirectory = function(AIT.anndata,
                                  doPatchseqQC = TRUE,
                                  metadata_names = NULL,
                                  min.confidence = 0.7,
+                                 return.metrics = FALSE,
                                  verbose=TRUE
 ){
 
@@ -176,8 +178,10 @@ buildMappingDirectory = function(AIT.anndata,
     cnt <- setNames(rep(0,ln),colnames(meta.data))
     for (i in 1:ln) if(mean(is.element(meta.data[,i], (AIT.anndata$obs[,lab])))==1){
       col <- gsub("_label","",colnames(meta.data)[i])
-      print(paste("Colors updated for:",col))
-      meta.data[,paste0(col,"_color")] <- AIT.anndata$obs[,gsub("_label","_color",lab)][match(meta.data[,paste0(col,"_label")],AIT.anndata$obs[,lab])]
+      if(is.element(col,colnames(meta.data))){  # Handles edge cases where "_label" is in the middle of the column name
+        print(paste("Colors updated for:",col))
+        meta.data[,paste0(col,"_color")] <- AIT.anndata$obs[,gsub("_label","_color",lab)][match(meta.data[,paste0(col,"_label")],AIT.anndata$obs[,lab])]
+      }
     }
   }
  
@@ -240,4 +244,8 @@ buildMappingDirectory = function(AIT.anndata,
   
   write_feather(tsne, file.path(mappingFolder, "tsne.feather"))
   write_feather(as_tibble(tsne_desc), file.path(mappingFolder, "tsne_desc.feather"))
+  
+  # Return query metadata if requested
+  if(return.metrics)
+    return(query.metadata)
 }

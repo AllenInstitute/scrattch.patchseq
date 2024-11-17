@@ -13,6 +13,7 @@ buildMappingDirectory(
   doPatchseqQC = TRUE,
   metadata_names = NULL,
   min.confidence = 0.7,
+  return.metrics = FALSE,
   verbose = TRUE
 )
 }
@@ -32,6 +33,8 @@ buildMappingDirectory(
 \item{metadata_names}{An optional named character vector where the vector NAMES correspond to columns in the metadata matrix and the vector VALUES correspond to how these metadata should be displayed in Shiny. This is used for writing the desc.feather file later.}
 
 \item{min.confidence}{Probability below which a cell cannot be assigned to a cell type (default 0.7).  In other words, if no cell types have probabilities greater than resolution.index, then the assigned cluster will be an internal node of the dendrogram.}
+
+\item{return.metrics}{If TRUE (default=FALSE) will return an updated query.metadata data frame with additional metrics calculated as part of this function. Otherwise, these values are available in 'anno.feather'.}
 
 \item{verbose}{Should detail logging be printed to the screen?
 
