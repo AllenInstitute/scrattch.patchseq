@@ -14,6 +14,8 @@
 #' @param subclass.subsample The number of cells to retain for PatchseqQC contamination calculation (default = 100, probably no need to change).
 #' @param num.markers The maximum number of markers to calculate per node per direction (default = 50)
 #' @param taxonomyDir The location to save shiny output (default = current working directory).
+#' @param addMapMyCells If TRUE (default), will also prep this mode of the taxonomy for hierarchical mapping
+#' @param hierarchy Column names of annotations to map against with hierarchical mapping.  Note that this only works for metadata that represent clusters or groups of clusters (e.g., subclass, supertype, neighborhood, class). Will default to whatever is in AIT.anndata$uns$hierarchy and is required if addMapMyCells=TRUE
 #' @param ... Additional variables to be passed to `addDendrogramMarkers`
 #' 
 #' The following variables are added to AIT.anndata$uns:  
@@ -26,19 +28,19 @@
 #' ...$classBr,  
 #' ...$subclassF,  
 #' ...$allMarkers  
-#' ...$de_genes  
 #' $memb[[mode.name]]  
 #' ...$memb.ref,  
 #' ...$map.df.ref  
 #' 
 #' @import patchseqtools
 #' @import scrattch.hicat
+#' @import reticulate
 #'
 #' @return AIT.anndata An updated AIT.anndata variable with the above content added to AIT.anndata$uns for the relevant mode.name.
 #'
 #' @export
 buildPatchseqTaxonomy = function(AIT.anndata,
-                                 mode.name = "patchseq", ## "Inhibitory"
+                                 mode.name = "patchseq", 
                                  subsample = 100,
                                  subclass.column = "subclass_label",
                                  class.column = "class_label",
@@ -46,6 +48,8 @@ buildPatchseqTaxonomy = function(AIT.anndata,
                                  subclass.subsample = 100,
                                  num.markers = 50,
                                  taxonomyDir = file.path(AIT.anndata$uns$taxonomyDir),
+                                 addMapMyCells = TRUE,
+                                 hierarchy = AIT.anndata$uns$hierarchy,
                                  ...
 ){
 
@@ -133,7 +137,7 @@ buildPatchseqTaxonomy = function(AIT.anndata,
   AIT.anndata$uns$dend[[mode.name]] = toJSON(dend_to_json(dend))
 
   ## Save patch-seq mode into taxonomy anndata
-  AIT.anndata$write_h5ad(file.path(taxonomyDir, paste0(AIT.anndata$uns$taxonomyName, ".h5ad")))
+  AIT.anndata$write_h5ad(file.path(taxonomyDir, paste0(AIT.anndata$uns$title, ".h5ad")))
   
   ## Update the log file and check the taxonomy for proper quality
   if(!checkTaxonomy(AIT.anndata,taxonomyDir)){
@@ -146,6 +150,19 @@ buildPatchseqTaxonomy = function(AIT.anndata,
   # $memb[[mode.name]]
   # ...$memb.ref,
   # ...$map.df.ref
+  
+  ## Add MapMyCells (hierarchical mapping) functionality, if requested
+  if(addMapMyCells) {
+    if(is.character(hierarchy)) hierarchy <- as.list(hierarchy)
+    if((length(hierarchy)==0)|(sum(class(hierarchy)=="list")<1)){
+      warning("hierarchy must be a list of term_set_labels in the reference taxonomy ordered from most gross to most fine included in AIT_anndata or provided separately. Since this is NOT the case, addMapMyCells is being skipped")
+    } else{
+      currentMode = AIT.anndata$uns$mode
+      AIT.anndata = mappingMode(AIT.anndata, mode=mode.name)
+      AIT.anndata = addMapMyCells(AIT.anndata, hierarchy, force=TRUE)
+      AIT.anndata = mappingMode(AIT.anndata, mode=currentMode)
+    }
+  }
   
   ##
   return(AIT.anndata)

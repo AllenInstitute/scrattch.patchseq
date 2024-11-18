@@ -7,4 +7,4 @@ vignette: >
   \usepackage[utf8]{inputenc} 
 ---
   
-Vignettes are located on the main website for scrattch.taxonomy: https://github.com/AllenInstitute/scrattch.taxonomy
+Vignettes are located on the main website for scrattch.patchseq: https://github.com/AllenInstitute/scrattch.patchseq

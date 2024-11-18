@@ -14,6 +14,8 @@ buildPatchseqTaxonomy(
   subclass.subsample = 100,
   num.markers = 50,
   taxonomyDir = file.path(AIT.anndata$uns$taxonomyDir),
+  addMapMyCells = TRUE,
+  hierarchy = AIT.anndata$uns$hierarchy,
   ...
 )
 }
@@ -36,6 +38,10 @@ buildPatchseqTaxonomy(
 
 \item{taxonomyDir}{The location to save shiny output (default = current working directory).}
 
+\item{addMapMyCells}{If TRUE (default), will also prep this mode of the taxonomy for hierarchical mapping}
+
+\item{hierarchy}{Column names of annotations to map against with hierarchical mapping.  Note that this only works for metadata that represent clusters or groups of clusters (e.g., subclass, supertype, neighborhood, class). Will default to whatever is in AIT.anndata$uns$hierarchy and is required if addMapMyCells=TRUE}
+
 \item{...}{Additional variables to be passed to \code{addDendrogramMarkers}
 
 The following variables are added to AIT.anndata$uns:
@@ -48,7 +54,6 @@ $QC_markers[\link{mode.name}]
 ...$classBr,
 ...$subclassF,
 ...$allMarkers
-...$de_genes
 $memb[\link{mode.name}]
 ...$memb.ref,
 ...$map.df.ref}
