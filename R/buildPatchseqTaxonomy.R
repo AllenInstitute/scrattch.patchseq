@@ -6,9 +6,10 @@
 # ----- Distinction of neuron (e.g., mappable type) vs. non-neuron (e.g., contamination type)
 #'
 #' @param AIT.anndata A reference taxonomy anndata object.
-#' @param subsample The number of cells to retain per cluster (default = 100).
-#' @param subclass.column Column name corresponding to the moderate-resolution cell types used for the cell types of interest (default = "subclass_label").
-#' @param class.column Column name corresponding to the low-resolution cell types used for the off-target cell types (default = "class_label").
+#' @param variable.genes Set of variable genes used for correlation and Seurat mapping. We recommend providing this gene set, but if not provided the gene set will default to the highly.variable.genes from mode="standard" (not recommended).  This can also be set after the fact using `updateHighlyVariableGenes`.
+#' @param subsample The number of cells to retain per cluster (default = 100). See details.
+#' @param subclass.column Column name corresponding to the moderate-resolution cell types used for the cell types of interest (default = "subclass_label"). See details.
+#' @param class.column Column name corresponding to the low-resolution cell types used for the off-target cell types (default = "class_label"). See details.
 #' @param off.target.types A character vector of off-target (also known as 'contamination') cell types.  This must include at least one of the cell types found in "class.column" and/or "subclass.column" (both columns are checked)
 #' @param mode.name A name to identify the new taxonomy version.
 #' @param subclass.subsample The number of cells to retain for PatchseqQC contamination calculation (default = 100, probably no need to change).
@@ -17,6 +18,16 @@
 #' @param addMapMyCells If TRUE (default), will also prep this mode of the taxonomy for hierarchical mapping
 #' @param hierarchy Column names of annotations to map against with hierarchical mapping.  Note that this only works for metadata that represent clusters or groups of clusters (e.g., subclass, supertype, neighborhood, class). Will default to whatever is in AIT.anndata$uns$hierarchy and is required if addMapMyCells=TRUE
 #' @param ... Additional variables to be passed to `addDendrogramMarkers`
+#' 
+#' **How filtering works**
+#' 
+#' Currently taxonomies are subsetted (or 'filtered') using two methods.  First, at most a random set of `subsample` cells are included per cluster (and therefore the rest of the cells per cluster are filtered).  If you do not want to subsample, then set subsample=Inf.  Second, off target clusters are removed. More specifically, any cells with values of `off.target.types` in either `subclass.column` or `class.column` are removed. Note that cells labeled as TRUE in the filter are the ones REMOVED.
+#' 
+#' **Notes on PatchseqQC**
+#' 
+#' PatchseqQC requires cell types defined at two resolutions to work, currently defined in the class `subclass.column` and `class.column` for the higher and lower-resolution cell types respectively. PatchseqQC has the concept of on target vs. off target gene expression.  For on target types, it uses the lower resolution types and for off-target types it uses the higher-resolution types. QC metrics can then estimate the quality of the cell along with how much contamination there is from other types of cells. PatchseqQC isn't called in this function, but several of the additions listed below are input files required to call it later.
+#' 
+#' **Additions to AIT.anndata**
 #' 
 #' The following variables are added to AIT.anndata$uns:  
 #' $dend[[mode.name]]  
@@ -30,7 +41,10 @@
 #' ...$allMarkers  
 #' $memb[[mode.name]]  
 #' ...$memb.ref,  
-#' ...$map.df.ref  
+#' ...$map.df.ref
+#' 
+#' The following variable is added to AIT.anndata$var
+#' $highly_variable_genes_{AIT.anndata$uns$mode}
 #' 
 #' @import patchseqtools
 #' @import scrattch.hicat
@@ -40,6 +54,7 @@
 #'
 #' @export
 buildPatchseqTaxonomy = function(AIT.anndata,
+                                 variable.genes = NULL,
                                  mode.name = "patchseq", 
                                  subsample = 100,
                                  subclass.column = "subclass_label",
@@ -53,6 +68,9 @@ buildPatchseqTaxonomy = function(AIT.anndata,
                                  ...
 ){
 
+  ## Capture current mode so after output the mode is unchanged
+  currentMode = AIT.anndata$uns$mode
+  
   ## Ensure filtering mode doesn't already exist
   if(mode.name %in% names(AIT.anndata$uns$filter)){ print(paste0("Mode ", mode.name, " already in Taxonomy, you will be overwriting the previous mode files.")) }
 
@@ -68,7 +86,8 @@ buildPatchseqTaxonomy = function(AIT.anndata,
   ## Copy metadata
   metadata = AIT.anndata$obs
 
-  ## Ensure variable naming scheme matches assumptions
+  ## Ensure variable naming scheme matches assumptions  
+  # --- NOTE: we should consider renaming these variables.
   metadata$subclass_label = AIT.anndata$obs[,subclass.column]  # For compatibility with existing code.
   metadata$class_label = AIT.anndata$obs[,class.column]  # For compatibility with existing code.
   
@@ -105,9 +124,10 @@ buildPatchseqTaxonomy = function(AIT.anndata,
   AIT.anndata$uns$filter[[mode.name]] = !((!AIT.anndata$uns$filter[[mode.name]]) & ((subsampleCells(metadata$cluster_label,subsample)))) # NEW, for subsampling
 
   ## Filter stats files if they exist
-  AIT.anndata$uns$stats[[mode.name]][["medianExpr"]] = AIT.anndata$uns$stats[["standard"]][["medianExpr"]][,unique(metadata$cluster_label[!AIT.anndata$uns$filter[[mode.name]]])]
+  cluster.keep <- is.element(AIT.anndata$uns$stats[["standard"]][["clusters"]],AIT.anndata$obs$cluster_label[!AIT.anndata$uns$filter[[mode.name]]])
+  AIT.anndata$uns$stats[[mode.name]][["medianExpr"]] = AIT.anndata$uns$stats[["standard"]][["medianExpr"]][,cluster.keep]
   AIT.anndata$uns$stats[[mode.name]][["features"]] = AIT.anndata$uns$stats[["standard"]]$features
-  AIT.anndata$uns$stats[[mode.name]][["clusters"]] = unique(metadata$cluster_label[!AIT.anndata$uns$filter[[mode.name]]])
+  AIT.anndata$uns$stats[[mode.name]][["clusters"]] =  AIT.anndata$uns$stats[["standard"]][["clusters"]][cluster.keep]
 
   ## Save patchseqQC information to uns
   AIT.anndata$uns$QC_markers[[mode.name]] = list("allMarkers" = allMarkers,
@@ -157,12 +177,15 @@ buildPatchseqTaxonomy = function(AIT.anndata,
     if((length(hierarchy)==0)|(sum(class(hierarchy)=="list")<1)){
       warning("hierarchy must be a list of term_set_labels in the reference taxonomy ordered from most gross to most fine included in AIT_anndata or provided separately. Since this is NOT the case, addMapMyCells is being skipped")
     } else{
-      currentMode = AIT.anndata$uns$mode
       AIT.anndata = mappingMode(AIT.anndata, mode=mode.name)
       AIT.anndata = addMapMyCells(AIT.anndata, hierarchy, force=TRUE)
       AIT.anndata = mappingMode(AIT.anndata, mode=currentMode)
     }
   }
+  
+  ## Add highly variable genes. If not provided, default to global highly variable genes.
+  AIT.anndata = updateHighlyVariableGenes(AIT.anndata, variable.genes, mode.name)
+  AIT.anndata = mappingMode(AIT.anndata, mode=currentMode)
   
   ##
   return(AIT.anndata)

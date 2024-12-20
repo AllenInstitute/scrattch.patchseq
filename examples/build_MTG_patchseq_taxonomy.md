@@ -41,8 +41,8 @@ The first step is to read in your cell (columns) by gene (rows) data matrix of c
 
 ```R
 ## Download the reference data to the working directory and read it in
-seaad_url  <- "https://sea-ad-single-cell-profiling.s3.us-west-2.amazonaws.com/MTG/RNAseq/Reference_MTG_RNAseq_final-nuclei.2022-06-07.h5ad"
-dend_url   <- "https://brainmapportal-live-4cc80a57cd6e400d854-f7fdcae.divio-media.net/filer_public/0f/37/0f3755cb-3acb-4b93-8a62-5d6adc74c673/dend.rds"
+#seaad_url  <- "https://sea-ad-single-cell-profiling.s3.us-west-2.amazonaws.com/MTG/RNAseq/Reference_MTG_RNAseq_final-nuclei.2022-06-07.h5ad"
+#dend_url   <- "https://brainmapportal-live-4cc80a57cd6e400d854-f7fdcae.divio-media.net/filer_public/0f/37/0f3755cb-3acb-4b93-8a62-5d6adc74c673/dend.rds"
 #download.file(seaad_url,"Reference_MTG_data.h5ad")  # NOTE: we recommend downloading via the web browser, as this command may fail
 #download.file(dend_url,"Reference_MTG_dend.rds")
 seaad_data <- read_h5ad("Reference_MTG_RNAseq_final-nuclei.2022-06-07.h5ad")
@@ -52,11 +52,11 @@ seaad_dend <- readRDS("Reference_MTG_dend.rds")
 keepCells <- subsampleCells(seaad_data$obs$cluster_label,100,seed=42)
 
 ## Select only a few clusters to speed up calculations (NOTE: YOU WOULD NORMALLY NEVER DO THIS)
-#keepCl    <- c(paste0("Lamp5_",1:3),paste0("Sst_",4:5),paste0("Pvalb_",6:7),
-#               paste0("L2/3 IT_",1:2),paste0("L6b_",1:2),paste0("L5 ET_",1:2),
-#			          paste0("Astro_",1:2),paste0("Oligo_",1:2),paste0("Micro-PVM_",1:2))
-#seaad_dend<- prune(seaad_dend,setdiff(labels(seaad_dend),keepCl))
-#keepCells <- keepCells&is.element(seaad_data$obs$cluster_label,keepCl)
+keepCl    <- c(paste0("Lamp5_",1:3),paste0("Sst_",4:5),paste0("Pvalb_",6:7),
+               paste0("L2/3 IT_",1:2),paste0("L6b_",1:2),paste0("L5 ET_",1:2),
+			          paste0("Astro_",1:2),paste0("Oligo_",1:2),paste0("Micro-PVM_",1:2))
+seaad_dend<- prune(seaad_dend,setdiff(labels(seaad_dend),keepCl))
+keepCells <- keepCells&is.element(seaad_data$obs$cluster_label,keepCl)
 
 ## Get (subsampled) subset data and annotations
 taxonomy.counts = (seaad_data$X)[keepCells,]
@@ -75,7 +75,7 @@ taxonomy.counts <- as(taxonomy.counts, "dgCMatrix")
 
 ### 1.2: Create the (parent) AIT Taxonomy 
 
-This section will create the parent taxonomy for the reference data.  In this case, we include up 1000 cells for **every** cell type defined in Hodge et al 2019, along with their associated metadata, and will subsample the clusters and cells further at a later step.
+This section will create the parent taxonomy for the reference data. Unless you subsetted to the handful of types above, this example includes up 100 cells for every cell type defined in Gabitto, Travaglini et al 2024, along with their associated metadata, and will subsample the clusters and cells further at a later step.
 
 This code block loads the scrattch.taxonomy library, and then calculates variables genes and defines a UMAP **using a very basic approach**.  If variable genes and/or 2-dimensional coordinates already exist, they can be provided to buildTaxonomy below rather than calculated in this way. 
 
@@ -126,14 +126,16 @@ AIT.anndata = buildTaxonomy(
 
 Now let's create a version of the taxonomy which is compatible with patchseqQC and can be filtered to remove off target cells from mapping. **You are creating a new version of the base taxonomy which can be reused by specifying the provided `mode.name` in `scrattch.taxonomy::mappingMode()` as discussed next.**
 
+In this case, we know that we are mapping patch-seq data to neurons, so we will define all "Non-neuronal and Non-neural" cells as off-target. The "off.target.types" are used in two ways by the function buildPatchseqTaxonomy. First, all non-neuronal cells and associated clusters are filtered from the reference taxonomy, ensuring any subsequent mapping must be to neuronal types. Second, this is used in patchseqQC to calculated quality score and determine the most like contamination cell type. buildPatchseqTaxonomy searches the "subclass.column" and "class.column" columns for any cells in the off-target types and filters them out.
+
 ```R
-## Setup the taxonomy for patchseqQC to infer off.target contamination
+## Setup the taxonomy for patchseqQC to infer off.target contamination and to subset to only include neurons
 AIT.anndata = buildPatchseqTaxonomy(
                  AIT.anndata,
                  mode.name = "patchseq", ## Give a name to off.target filtered taxonomy
                  subsample = 100, ## Subsampling for the new taxonomy.
                  subclass.column = "subclass_label", 
-                 class.column = "class_label", ## The column by which off-target types are determined.
+                 class.column = "class_label", ## The off-target class.column labels for patchseqQC and subsampling.
                  off.target.types = c("Non-neuronal and Non-neural"), ## The off-target class.column labels for patchseqQC.
                  subclass.subsample = 100, ## Subsampling is for PatchseqQC contamination calculation.
                  num.markers = 50, ## Number of markers for each annotation in `class_label`
@@ -156,10 +158,11 @@ Currently a subfolder for the child taxonomy is also created, but everything in 
 
 The rest of this example demonstrates how to map patch-seq data to the reference defined above and apply quality control metrics to patch-seq data.  These are the primary use cases of the `scrattch.mapping` and `scrattch.patchseq` libraries, respectively. This part is entirely distinct from creation of a reference taxonomy in Part 1 above. 
 
-
 ### 2.1: Read in the QUERY (e.g., Patch-seq) data
 
-The first step is to read in your cell (columns) by gene (rows) data matrix of **log-normalized** query counts alongside (optional) metadata associated with each cell.  These are saved as query.logCPM and query.anno, respectively in the section below.  We use data from Berg et al 2020 **FOR EXAMPLE ONLY**.  Note that colnames(query.logCPM) and rownames(query.anno) should be identical and correspond to cell IDs, and rownames(query.logCPM) should be the gene names (in the is case, gene symbols).  **Only common gene names in query.logCPM and taxonomy.counts will be used for mapping.**
+The first step is to read in your cell (columns) by gene (rows) data matrix of **log-normalized** query counts alongside (optional) metadata associated with each cell.  These are saved as query.logCPM and query.anno, respectively in the section below.  We use data from Berg et al 2020 **FOR EXAMPLE ONLY**. This study focuses on superficial pyramidal neurons in human neocortex, and therefore most cells should map to L2/3 IT or L4 IT types.  
+
+When provdiding your own data, note that colnames(query.logCPM) and rownames(query.anno) should be identical and correspond to cell IDs, and rownames(query.logCPM) should be the gene names (in the is case, gene symbols).  **Only common gene names in query.logCPM and taxonomy.counts will be used for mapping.**  
 
 ```R
 ## Download data and metadata from GitHub repo for Berg et al 2022
@@ -173,7 +176,6 @@ query.anno = annoPatch  # Some cell annotations for all cells from the paper
 query.logCPM = datPatch # logCPM values for all cells from the paper
 ```
 
-
 ### 2.2: Set scrattch.mapping mode
 
 **Do not skip this step!** Here we set taxonomy mode to the relevant "child" taxonomy defined in 1.3 above.  This will let the mapping functions know to  only consider the unfiltered cells and cell types (e.g., use subsetted cells from neuronal clusters for Patch-seq mapping).
@@ -182,7 +184,20 @@ query.logCPM = datPatch # logCPM values for all cells from the paper
 AIT.anndata = mappingMode(AIT.anndata, mode="patchseq")
 ```
 
-### 2.3: Map query cells to Patch-seq reference
+### 2.3: Update variable genes for mapping
+
+By default the variable genes used for mapping are the global ones. This step defines a set of genes relevant to the specific mode (e.g., subset of the taxonomy) used as variable genes for correlation and Seurat mapping.  For tree and hierarchical mapping, this isn't used, as statistics are defined and stored as part of in buildPatchseqTaxonomy or buildTaxonomy.
+
+```R
+## Compute top 1000 binary marker genes for clusters (or use a pre-existing vector)
+keep.cells   = !AIT.anndata$uns$filter[[AIT.anndata$uns$mode]]
+binary.genes = top_binary_genes(t(AIT.anndata$X[keep.cells,]), AIT.anndata$obs$cluster_label[keep.cells], 1000)
+
+## Update the anndata object with this gene set
+AIT.anndata  = updateHighlyVariableGenes(AIT.anndata,binary.genes)
+```
+
+### 2.4: Map query cells to Patch-seq reference
 
 This is the step that performs the mapping.  Since we have very different query and reference data sets, Seurat mapping in this example may not be reliable. Note that each mapping algorithm can map to multiple levels of the taxonomy. 
 
@@ -197,9 +212,12 @@ query.mapping = taxonomy_mapping(AIT.anndata= AIT.anndata,
 
 ## If you want the mapping data.frame and associated scores from the S4 mappingClass
 mapping.results = getMappingResults(query.mapping, scores=TRUE)
+
+## If you want more information about the mapping methods
+?taxonomy_mapping
 ```
 
-### 2.4: QC patch-seq data and create shiny directory
+### 2.5: QC patch-seq data and create shiny directory
 
 This section performs additional query data QC and then outputs the files necessary for visualization of Patch-seq data with molgen-shiny tools (AIBS internal) into a folder. If `return.metrics = TRUE`, this function also returns an updated annotation table that includes original metadata, mapping results, and all of the additional metrics and statistics described below.
 

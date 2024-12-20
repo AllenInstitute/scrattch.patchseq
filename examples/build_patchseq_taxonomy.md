@@ -32,8 +32,8 @@ query.logCPM <- logCPM(query.counts)
 
 ## Download metadata from Gouwens et al 2020 (to match data from scrattch.mapping tutorial) 
 ## -- These data and metadata would be replaced by your query data
-download.file(paste0(patchFolder,metadata_url),metadata_url)
 metadata_url <- "20200625_patchseq_metadata_mouse.csv.tar"
+download.file(paste0(patchFolder,metadata_url),metadata_url)
 untar(metadata_url)
 query.anno   <- as.data.frame(data.table::fread("20200625_patchseq_metadata_mouse/20200625_patchseq_metadata_mouse.csv"))
 rownames(query.anno) <- query.anno$transcriptomics_sample_id
@@ -56,11 +56,16 @@ levels(AIT.anndata$obs$off_target) = c(levels(AIT.anndata$obs$off_target), "Non-
 ## Now lets set all Non-neuronal cells to the "Non-neuronal" off target annotation.
 AIT.anndata$obs$off_target[!is.element(AIT.anndata$obs$off_target, c("GABA-ergic Neuron","Glutamatergic Neuron"))] = "Non-neuronal"
 AIT.anndata$obs$off_target <- droplevels(AIT.anndata$obs$off_target)
+
+## View this column
+table(AIT.anndata$obs$off_target)
 ```
+
+In this case, we know that we are mapping patch-seq data to neurons, so we will define all "Non-neuronal" cells as off-target. This is used in two ways for patch-seq analysis. First, all non-neuronal cells and associated clusters are filtered from the reference taxonomy, ensuring any subsequent mapping must be to neuronal types. Second, this is used in patchseqQC to calculated quality score and determine the most like contamination cell type.
 
 ### Build the patchseq taxonomy
 
-Now let's create a version of the taxonomy which is compatible with patchseqQC and can be filtered to remove off target cells from mapping. **You are creating a new version of the base taxonomy which can be reused by specifying the provided `mode.name` in `scrattch.taxonomy::mappingMode()` as dicusssed next.**  Note that we also need to explicitly set the mapping mode prior to calculating MapMyCells statistics and prior to mapping to this new taxonomy mode. 
+Now let's create a version of the taxonomy which is compatible with patchseqQC and can be filtered to remove off target cells from mapping. **You are creating a new version of the base taxonomy which can be reused by specifying the provided `mode.name` in `scrattch.taxonomy::mappingMode()`.** 
 
 ```R
 ## Setup the taxonomy for patchseqQC to infer off.target contamination
@@ -69,20 +74,33 @@ AIT.anndata = buildPatchseqTaxonomy(AIT.anndata,
                                     subsample = 100, ## Subsampling is only for PatchseqQC contamination calculation.
                                     subclass.column = "cluster_label", ## Typically this is `subclass_label` but tasic2016 has no subclass annotation.
                                     class.column = "off_target", ## The column by which off-target types are determined.
-                                    off.target.types = c("Non-neuronal"), ## The off-target class.column labels for patchseqQC.
+                                    off.target.types = c("Non-neuronal"), ## The off-target class.column labels for patchseqQC and subsampling.
                                     num.markers = 50, ## Number of markers for each annotation in `class_label`
                                     taxonomyDir = taxonomyDir)  ## Replace with location to store taxonomy
+
+## Set scrattch.mapping mode - DO NOT SKIP THIS STEP, as this ensures mapping is to this subset of the data and not to the whole taxonomy
+AIT.anndata = mappingMode(AIT.anndata, mode="patchseq")
 ```
 The `buildPatchseqTaxonomy` function does the following:
 
 * Create a new mode of the taxonomy corresponding to a subset of clusters in the taxonomy, with baggage needed for all mapping algorithms
 * Returns updated AIT.anndata object to allow for patchseq mapping as well as for the QC steps below.
 
+### Update variable genes for mapping
+
+By default the variable genes used for mapping are the global ones. This step defines a set of genes relevant to the specific mode (e.g., subset of the taxonomy) used as variable genes for correlation and Seurat mapping.  For tree and hierarchical mapping, this isn't used, as statistics are defined and stored as part of in buildPatchseqTaxonomy or buildTaxonomy.
+
+```R
+## Compute top 1000 binary marker genes for clusters (or use a pre-existing vector)
+keep.cells   = !AIT.anndata$uns$filter[[AIT.anndata$uns$mode]]
+binary.genes = top_binary_genes(t(AIT.anndata$X[keep.cells,]), AIT.anndata$obs$cluster_label[keep.cells], 1000)
+
+## Update the anndata object with this gene set
+AIT.anndata  = updateHighlyVariableGenes(AIT.anndata,binary.genes)
+```
+
 ### Map against the patchseq taxonomy
 ```R
-## Set scrattch.mapping mode - DO NOT SKIP THIS STEP
-AIT.anndata = mappingMode(AIT.anndata, mode="patchseq")
-
 # This function is part of the 'scrattch.mapping' library
 query.mapping = taxonomy_mapping(AIT.anndata= AIT.anndata,
                                  query.data = query.logCPM,
@@ -93,6 +111,9 @@ query.mapping = taxonomy_mapping(AIT.anndata= AIT.anndata,
 
 ## If you want the mapping data.frame and associated scores from the S4 mappingClass
 mapping.results = getMappingResults(query.mapping, scores=TRUE)
+
+## If you want more information about the mapping methods
+?taxonomy_mapping
 ```
 
 ### QC patch-seq data and create shiny directory

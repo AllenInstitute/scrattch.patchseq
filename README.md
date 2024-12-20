@@ -8,24 +8,26 @@ You can find a detail description of all scrattch.patchseq functions here: ![Doc
 
 Update notes are here: ![Versions](https://github.com/AllenInstitute/scrattch.patchseq/blob/main/VERSIONS.md)
 
-## Docker
+## Installation
 
-We have setup a docker environemnt for scrattch.taxonomy and scrattch.mapping that contains all the required dependencies and the current version of all scrattch packages. This docker is accessible through docker hub via: `njjai/scrattch_mapping:0.6.6`.
+### Using docker (recommended)
+We have setup a docker environment for scrattch.taxonomy, scrattch.mapping, and scrattch.patchseq that contains all the required dependencies and the current version of all scrattch packages. **See [the readme](https://github.com/AllenInstitute/scrattch/blob/master/README.md#using-docker) for [the parent scrattch package](https://github.com/AllenInstitute/scrattch) for the most up-to-date docker information.**
 
-#### HPC usage:
+### Directly from GitHub (strongly discouraged)
 
-##### Non-interactive
-`singularity exec --cleanenv docker://njjai/scrattch_mapping:0.6.6 Rscript YOUR_CODE.R`
+While we advise using the provided docker, you can also install scrattch.patchseq directly from GitHub as follows:
 
-##### Interactive
-`singularity shell --cleanenv docker://njjai/scrattch_mapping:0.6.6`
+```
+devtools::install_github("AllenInstitute/scrattch.patchseq")
+```
 
+This strategy **might not work** due to complicated dependencies. Also note that `doMC` may need to be installed manually from [HERE](https://r-forge.r-project.org/R/?group_id=947) if you use Windows. Vignettes are provided below.
 
 ## Usage examples
 
-1. [**Build and map against a small mouse PatchSeq taxonomy**](https://github.com/AllenInstitute/scrattch.patchseq/blob/main/examples/build_patchseq_taxonomy.md) This example provides the basics for updating a taxonomy to be compatible with patchseq style mapping and visualization on (internal Allen Institute) MolGen Shiny tools.
+1. [**Map against a small mouse PatchSeq taxonomy**](https://github.com/AllenInstitute/scrattch.patchseq/blob/main/examples/build_patchseq_taxonomy.md) This example provides the basics for updating a taxonomy to be compatible with patchseq style mapping and visualization on (internal Allen Institute) MolGen Shiny tools, and for collecting quality control metrics of potential use to everyone. This is a continuation of examples in scrattch.taxonomy and scrattch.mapping building data from [Tasic et al 2016](https://www.nature.com/articles/nn.4216) as reference and data from [Gouwens, Sorensen, et al 2020](https://www.sciencedirect.com/science/article/pii/S009286742031254X) as query.
 
-2. [**Build and map against a human MTG PatchSeq taxonomy**](https://github.com/AllenInstitute/scrattch.patchseq/blob/main/examples/build_MTG_patchseq_taxonomy.md) This example provides shows how to create a standard taxonomy and update it to be compatible with patchseq style mapping and visualization on (internal Allen Institute) MolGen Shiny tools. This example essentially combines examples 1 and 2 and applies them to human neocortical data sets.  Data is from Hodge et al. (2019) for human MTG and patch-seq examples are from Berg et al (2021) (layer 2-3, excitatory neurons). 
+2. [**Build and map against a human MTG PatchSeq taxonomy**](https://github.com/AllenInstitute/scrattch.patchseq/blob/main/examples/build_MTG_patchseq_taxonomy.md) This example provides shows how to create a standard taxonomy, update it to be compatible with patchseq style mapping and visualization on (internal Allen Institute) MolGen Shiny tools, and for collecting quality control metrics of potential use to everyone. This example essentially combines examples 1 and 2 and applies them to human neocortical data sets.  Reference data is from the [Seattle Alzheimer's Disease Brain Cell Atlas (SEA-AD)](https://portal.brain-map.org/explore/seattle-alzheimers-disease) project [(Gabitto, Travaglini et al., 2024)](https://www.nature.com/articles/s41593-024-01774-5) for human middle temporal gyrus (MTG) and patch-seq query data include layer 2-3, excitatory neurons from [Berg et al (2021)](https://www.nature.com/articles/s41586-021-03813-8). 
 
    
 ## Reporting issues

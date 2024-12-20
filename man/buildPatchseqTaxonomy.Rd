@@ -6,6 +6,7 @@
 \usage{
 buildPatchseqTaxonomy(
   AIT.anndata,
+  variable.genes = NULL,
   mode.name = "patchseq",
   subsample = 100,
   subclass.column = "subclass_label",
@@ -22,13 +23,15 @@ buildPatchseqTaxonomy(
 \arguments{
 \item{AIT.anndata}{A reference taxonomy anndata object.}
 
+\item{variable.genes}{Set of variable genes used for correlation and Seurat mapping. We recommend providing this gene set, but if not provided the gene set will default to the highly.variable.genes from mode="standard" (not recommended).  This can also be set after the fact using \code{updateHighlyVariableGenes}.}
+
 \item{mode.name}{A name to identify the new taxonomy version.}
 
-\item{subsample}{The number of cells to retain per cluster (default = 100).}
+\item{subsample}{The number of cells to retain per cluster (default = 100). See details.}
 
-\item{subclass.column}{Column name corresponding to the moderate-resolution cell types used for the cell types of interest (default = "subclass_label").}
+\item{subclass.column}{Column name corresponding to the moderate-resolution cell types used for the cell types of interest (default = "subclass_label"). See details.}
 
-\item{class.column}{Column name corresponding to the low-resolution cell types used for the off-target cell types (default = "class_label").}
+\item{class.column}{Column name corresponding to the low-resolution cell types used for the off-target cell types (default = "class_label"). See details.}
 
 \item{off.target.types}{A character vector of off-target (also known as 'contamination') cell types.  This must include at least one of the cell types found in "class.column" and/or "subclass.column" (both columns are checked)}
 
@@ -44,6 +47,16 @@ buildPatchseqTaxonomy(
 
 \item{...}{Additional variables to be passed to \code{addDendrogramMarkers}
 
+\strong{How filtering works}
+
+Currently taxonomies are subsetted (or 'filtered') using two methods.  First, at most a random set of \code{subsample} cells are included per cluster (and therefore the rest of the cells per cluster are filtered).  If you do not want to subsample, then set subsample=Inf.  Second, off target clusters are removed. More specifically, any cells with values of \code{off.target.types} in either \code{subclass.column} or \code{class.column} are removed. Note that cells labeled as TRUE in the filter are the ones REMOVED.
+
+\strong{Notes on PatchseqQC}
+
+PatchseqQC requires cell types defined at two resolutions to work, currently defined in the class \code{subclass.column} and \code{class.column} for the higher and lower-resolution cell types respectively. PatchseqQC has the concept of on target vs. off target gene expression.  For on target types, it uses the lower resolution types and for off-target types it uses the higher-resolution types. QC metrics can then estimate the quality of the cell along with how much contamination there is from other types of cells. PatchseqQC isn't called in this function, but several of the additions listed below are input files required to call it later.
+
+\strong{Additions to AIT.anndata}
+
 The following variables are added to AIT.anndata$uns:
 $dend[\link{mode.name}]
 $filter[\link{mode.name}]
@@ -56,7 +69,10 @@ $QC_markers[\link{mode.name}]
 ...$allMarkers
 $memb[\link{mode.name}]
 ...$memb.ref,
-...$map.df.ref}
+...$map.df.ref
+
+The following variable is added to AIT.anndata$var
+$highly_variable_genes_{AIT.anndata$uns$mode}}
 }
 \value{
 AIT.anndata An updated AIT.anndata variable with the above content added to AIT.anndata$uns for the relevant mode.name.
