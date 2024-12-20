@@ -1,4 +1,18 @@
-## scrattch.patchseq 0.1.1
+## scrattch.patchseq v0.7.1
+
+Updates to improve correlation mapping
+
+### Major changes
+
+### Minor changes
+* Synchronized versions between scrattch.taxonomy, scrattch.mapping, an scrattch.patchseq
+* Added an option for inputting high variable genes in `buildPatchseqTaxonomy`
+* Fix cluster names in medianExpr for `buildPatchseqTaxonomy` to fix corMap
+* Minor updates to the examples and documentation improvements
+
+--
+
+## scrattch.patchseq v0.1.1
 
 Major edits to patch-seq examples 
 
@@ -14,6 +28,6 @@ Major edits to patch-seq examples
 
 --
 
-## scrattch.patchseq 0.1
+## scrattch.patchseq v0.1
 
 First commit
