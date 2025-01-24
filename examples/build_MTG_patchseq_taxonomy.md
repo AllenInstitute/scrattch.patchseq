@@ -189,7 +189,8 @@ This is the step that performs the mapping.  Since we have very different query 
 ```R
 # This function is part of the 'scrattch.mapping' library
 query.mapping = taxonomy_mapping(AIT.anndata= AIT.anndata,
-                                 query.data = query.logCPM, 
+                                 query.data = query.logCPM,
+                                 label.cols = hierarchy,  # Will default to AIT.anndata$uns$hierarchy if not provided
                                  corr.map   = TRUE, # Flags for which mapping algorithms to run
                                  tree.map   = TRUE, 
                                  seurat.map = TRUE,
