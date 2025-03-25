@@ -1,3 +1,15 @@
+## scrattch.patchseq 1.1.2
+
+Alignment with scrattch.taxonomy and scrattch.mapping with AIT schema
+
+### Major changes
+* Convert buildPatchseqTaxonomy to addPatchseqQCMetrics, intended to follow buildTaxonomyMode
+
+### Minor changes
+* Bug fixes
+
+--
+
 ## scrattch.patchseq 0.1.1
 
 Major edits to patch-seq examples 
