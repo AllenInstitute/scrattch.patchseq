@@ -75,7 +75,7 @@ addPatchseqQCMetrics = function(AIT.anndata,
   colnames(datQC) = AIT.anndata$obs_names[kpSamp2]; rownames(datQC) = AIT.anndata$var_names
 
   ## Determine off.target.types if not provided
-  if((mode.name %in% names(AIT.anndata$uns$filter))&(is.null(off.target.types)){
+  if((mode.name %in% names(AIT.anndata$uns$filter))&(is.null(off.target.types))){
     omit <- AIT.anndata$uns$filter[kpSamp2]
     off.target.types <- c(setdiff(annoQC$class_label,annoQC$class_label[omit]),
                           setdiff(annoQC$subclass_label,annoQC$subclass_label[omit]))
