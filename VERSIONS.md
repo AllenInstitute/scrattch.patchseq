@@ -1,3 +1,16 @@
+## scrattch.patchseq v1.2
+
+Improvements for mapping and patch-seq for schema.
+
+### Major changes
+* 
+
+### Minor changes
+* Bug fixes
+* Updated documentation
+
+--
+
 ## scrattch.patchseq 1.1.2
 
 Alignment with scrattch.taxonomy and scrattch.mapping with AIT schema
