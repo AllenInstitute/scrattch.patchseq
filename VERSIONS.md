@@ -3,7 +3,7 @@
 Improvements for mapping and patch-seq for schema.
 
 ### Major changes
-* 
+* Adding html documentation for functions
 
 ### Minor changes
 * Bug fixes
