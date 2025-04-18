@@ -2,65 +2,16 @@
 % Please edit documentation in R/buildPatchseqTaxonomy.R
 \name{buildPatchseqTaxonomy}
 \alias{buildPatchseqTaxonomy}
-\title{Save marker genes for patchSeqQC}
+\title{Save marker genes and QC metrics for patchSeqQC}
 \usage{
-buildPatchseqTaxonomy(
-  AIT.anndata,
-  mode.name = "patchseq",
-  subsample = 100,
-  subclass.column = "subclass_label",
-  class.column = "class_label",
-  off.target.types = c("Glia", "glia", "non-neuronal", "Non-neuronal"),
-  subclass.subsample = 100,
-  num.markers = 50,
-  taxonomyDir = file.path(AIT.anndata$uns$taxonomyDir),
-  addMapMyCells = TRUE,
-  hierarchy = AIT.anndata$uns$hierarchy,
-  ...
-)
+buildPatchseqTaxonomy(...)
 }
 \arguments{
-\item{AIT.anndata}{A reference taxonomy anndata object.}
-
-\item{mode.name}{A name to identify the new taxonomy version.}
-
-\item{subsample}{The number of cells to retain per cluster (default = 100).}
-
-\item{subclass.column}{Column name corresponding to the moderate-resolution cell types used for the cell types of interest (default = "subclass_label").}
-
-\item{class.column}{Column name corresponding to the low-resolution cell types used for the off-target cell types (default = "class_label").}
-
-\item{off.target.types}{A character vector of off-target (also known as 'contamination') cell types.  This must include at least one of the cell types found in "class.column" and/or "subclass.column" (both columns are checked)}
-
-\item{subclass.subsample}{The number of cells to retain for PatchseqQC contamination calculation (default = 100, probably no need to change).}
-
-\item{num.markers}{The maximum number of markers to calculate per node per direction (default = 50)}
-
-\item{taxonomyDir}{The location to save shiny output (default = current working directory).}
-
-\item{addMapMyCells}{If TRUE (default), will also prep this mode of the taxonomy for hierarchical mapping}
-
-\item{hierarchy}{Column names of annotations to map against with hierarchical mapping.  Note that this only works for metadata that represent clusters or groups of clusters (e.g., subclass, supertype, neighborhood, class). Will default to whatever is in AIT.anndata$uns$hierarchy and is required if addMapMyCells=TRUE}
-
-\item{...}{Additional variables to be passed to \code{addDendrogramMarkers}
-
-The following variables are added to AIT.anndata$uns:
-$dend[\link{mode.name}]
-$filter[\link{mode.name}]
-$QC_markers[\link{mode.name}]
-...$markers,
-...$countsQC,
-...$cpmQC,
-...$classBr,
-...$subclassF,
-...$allMarkers
-$memb[\link{mode.name}]
-...$memb.ref,
-...$map.df.ref}
+\item{...}{Variables to be passed to \code{buildPatchseqTaxonomy}}
 }
 \value{
-AIT.anndata An updated AIT.anndata variable with the above content added to AIT.anndata$uns for the relevant mode.name.
+AIT.anndata An updated AIT.anndata variable.
 }
 \description{
-This function saves all the variables required for applying the patchseq QC algorithm \code{pathseqtools} (which is an more flexible version of the \code{patchSeqQC} algorithm) to AIT.anndata$uns. This is only used for patch-seq analysis.  Requirements for input include:
+This is the same as addPatchseqQCMetrics, but the name buildPatchseqTaxonomy is kept for back-compatibility
 }
