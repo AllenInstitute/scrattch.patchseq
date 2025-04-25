@@ -1,6 +1,6 @@
 #' Save marker genes for patchSeqQC
 #'
-#' This function saves all the variables required for applying the patchseq QC algorithm `pathseqtools` (which is an more flexible version of the `patchSeqQC` algorithm) to AIT.anndata$uns. This is only used for patch-seq analysis.  Requirements for input include:
+#' This function saves all the variables required for applying the patchseq QC algorithm `patchseqtools` (which is an more flexible version of the `patchSeqQC` algorithm) to AIT.anndata$uns. This is only used for patch-seq analysis.  Requirements for input include:
 # ----- Subclass calls for each cell
 # ----- Broad class class calls for each cell
 # ----- Distinction of neuron (e.g., mappable type) vs. non-neuron (e.g., contamination type)
@@ -20,10 +20,10 @@
 #' The following variables are added to AIT.anndata$uns:  
 #' $dend[[mode.name]]  
 #' $filter[[mode.name]]  
-#' $QC_markers[[mode.name]]  
+#' $QC_markers_[[mode.name]]  
 #' ...$markers,  
 #' ...$countsQC,  
-#' ...$cpmQC,  
+#' ...$cpmQC,
 #' ...$classBr,  
 #' ...$subclassF,  
 #' ...$allMarkers  
@@ -65,7 +65,7 @@ addPatchseqQCMetrics = function(AIT.anndata,
 
   ## Subsample and filter metadata and data
   kpSamp2  = subsampleCells(AIT.anndata$obs[,subclass.column], subclass.subsample)
-  goodSamp = !is.na(AIT.anndata$obs$class_label)    # For back-compatibility; usually not used
+  goodSamp = !is.na(AIT.anndata$obs[,class.column])    # For back-compatibility; usually not used
   kpSamp2  = kpSamp2 & goodSamp                     # For back-compatibility; usually not used
   annoQC   = AIT.anndata$obs[kpSamp2,]
   annoQC$subclass_label = annoQC[,subclass.column]  # For compatibility with existing code.
@@ -89,7 +89,7 @@ addPatchseqQCMetrics = function(AIT.anndata,
     stop("No valid off-target classes or subclasses are provided. Please update off.target.types accordingly.")
   }
   
-  ## DEFINE QC PARAMETERS AND ASSOCIATED MARKER GENES ANDSAVE TO uns
+  ## DEFINE QC PARAMETERS AND ASSOCIATED MARKER GENES AND SAVE TO uns
   
   ## Define class and subclass vectors
   classBr   = annoQC$subclass_label
@@ -104,24 +104,31 @@ addPatchseqQCMetrics = function(AIT.anndata,
   rownames(datQC) = make.names(rownames(datQC))
   countsQC   = datQC[allMarkers,]
   cpmQC      = cpm(datQC)[allMarkers,]  ## Only use of scrattch.hicat in this function
-
+  
   ## Save patchseqQC information to uns
-  AIT.anndata$uns$QC_markers[[mode.name]] = list("allMarkers" = allMarkers,
+  AIT.anndata$uns$QC_markers_[[mode.name]] = list("allMarkers" = allMarkers,
                                                  "markers"    = markers,
                                                  "countsQC"   = countsQC,
-                                                 "cpmQC"      = cpmQC,
                                                  "classBr"    = classBr,
+                                                 "cpmQC"      = cpmQC,
                                                  "subclassF"  = subclassF,
                                                  "qc_samples" = colnames(countsQC),
                                                  "qc_genes"   = rownames(countsQC))
   
   ## CREATE THE TAXONOMY MODE, IF NEEDED
   
+  ## Determine the cluster column and warn if not "cluster_id"
+  hierarchy = AIT.anndata$uns$hierarchy
+  hierarchy = hierarchy[order(unlist(hierarchy))]
+  if(is.null(hierarchy)) stop("Hierarchy must be included in the standard AIT mode in proper format to create a mode.  Please run checkTaxonomy().")
+  celltypeColumn = names(hierarchy)[length(hierarchy)][[1]]
+  if(celltypeColumn!="cluster_id") warning("AIT schema requires clusters to be in 'cluster_id' slot. We recommend calling the finest level of the hierarchy as 'cluster_id'.")
+  
   if(!(mode.name %in% names(AIT.anndata$uns$filter))){
     ## Filter out off target cells along with additional cells beyond those subsampled
     ## ---  If the mode.name is new, this filter is used for the "retain" input for buildTaxonomyMode
-    filter = is.element(AIT.anndata$obs$class_label, off.target.types) | is.element(AIT.anndata$obs$subclass_label, off.target.types)
-    filter = !((!filter) & ((subsampleCells(AIT.anndata$obs$cluster_label,subsample)))) # NEW, for subsampling
+    filter = is.element(AIT.anndata$obs[,class.column], off.target.types) | is.element(AIT.anndata$obs[,subclass.column], off.target.types)
+    filter = !((!filter) & ((subsampleCells(AIT.anndata$obs[,celltypeColumn],subsample)))) # NEW, for subsampling
     
     ## Define the taxonomy mode here. 
     ## --- There are a LOT of parameters hidden in the '...', but the key piece here is we use the off.target.types for filtering
@@ -131,12 +138,6 @@ addPatchseqQCMetrics = function(AIT.anndata,
   
   ## Add dendrogram markers and membership tables, if requested
   if(add.dendrogram.markers){
-    ## Determine the cluster column and warn if not "cluster_id"
-    hierarchy = AIT.anndata$uns$hierarchy
-    hierarchy = hierarchy[order(unlist(hierarchy))]
-    if(is.null(hierarchy)) stop("Hierarchy must be included in the standard AIT mode in proper format to create a mode.  Please run checkTaxonomy().")
-    celltypeColumn = names(hierarchy)[length(hierarchy)][[1]]
-    if(celltypeColumn!="cluster_id") warning("AIT schema requires clusters to be in 'cluster_id' slot. We recommend calling the finest level of the hierarch as 'cluster_id'.")
     
     print("===== Adding dendrogram markers and membership tables for tree mapping =====")
     tryCatch({

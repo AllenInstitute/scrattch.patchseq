@@ -41,7 +41,7 @@ addPatchseqQCMetrics(
 The following variables are added to AIT.anndata$uns:
 $dend[\link{mode.name}]
 $filter[\link{mode.name}]
-$QC_markers[\link{mode.name}]
+$QC_markers_[\link{mode.name}]
 ...$markers,
 ...$countsQC,
 ...$cpmQC,
@@ -56,5 +56,5 @@ $memb[\link{mode.name}]  # Only if add.dendrogram.markers=TRUE
 AIT.anndata An updated AIT.anndata variable with the above content added to AIT.anndata$uns for the relevant mode.name.
 }
 \description{
-This function saves all the variables required for applying the patchseq QC algorithm \code{pathseqtools} (which is an more flexible version of the \code{patchSeqQC} algorithm) to AIT.anndata$uns. This is only used for patch-seq analysis.  Requirements for input include:
+This function saves all the variables required for applying the patchseq QC algorithm \code{patchseqtools} (which is an more flexible version of the \code{patchSeqQC} algorithm) to AIT.anndata$uns. This is only used for patch-seq analysis.  Requirements for input include:
 }

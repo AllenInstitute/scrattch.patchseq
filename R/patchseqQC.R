@@ -15,7 +15,7 @@ applyPatchseqQC = function(AIT.anndata,
   
   ## Checks
   if(!all(colnames(query.data) == rownames(query.metadata))){stop("Colnames of `query.data` and rownames of `meta.data` do not match.")}
-  if(is.null(AIT.anndata$uns$QC_markers[[AIT.anndata$uns$mode]])){stop(paste("QC_markers file must be provided for mode",AIT.anndata$uns$mode," in AIT.anndata in advance."))}
+  if(is.null(AIT.anndata$uns$QC_markers_[[AIT.anndata$uns$mode]])){stop(paste("QC_markers file must be provided for mode",AIT.anndata$uns$mode," in AIT.anndata in advance."))}
   
   ## Convert query.data to CPM
   if(is.element("data.frame",class(query.data))){stop("`query.data` should be a matrix or a sparse matrix, not a data.frame.")}
@@ -32,14 +32,14 @@ applyPatchseqQC = function(AIT.anndata,
   
   ## Load the reference files
   # ---- This includes markers, countsQC, cpmQC, classBr, subclassF, and allMarkers
-  allMarkers = AIT.anndata$uns$QC_markers[[AIT.anndata$uns$mode]]$allMarkers 
-  markers    = AIT.anndata$uns$QC_markers[[AIT.anndata$uns$mode]]$markers
-  countsQC   = AIT.anndata$uns$QC_markers[[AIT.anndata$uns$mode]]$countsQC
-  cpmQC      = AIT.anndata$uns$QC_markers[[AIT.anndata$uns$mode]]$cpmQC
-  classBr    = AIT.anndata$uns$QC_markers[[AIT.anndata$uns$mode]]$classBr
-  subclassF  = AIT.anndata$uns$QC_markers[[AIT.anndata$uns$mode]]$subclassF
-  rownames(cpmQC) <- rownames(countsQC) <- AIT.anndata$uns$QC_markers[[AIT.anndata$uns$mode]]$qc_genes
-  colnames(cpmQC) <- colnames(countsQC) <- AIT.anndata$uns$QC_markers[[AIT.anndata$uns$mode]]$qc_samples
+  allMarkers = AIT.anndata$uns$QC_markers_[[AIT.anndata$uns$mode]]$allMarkers 
+  markers    = AIT.anndata$uns$QC_markers_[[AIT.anndata$uns$mode]]$markers
+  countsQC   = AIT.anndata$uns$QC_markers_[[AIT.anndata$uns$mode]]$countsQC
+  cpmQC      = AIT.anndata$uns$QC_markers_[[AIT.anndata$uns$mode]]$cpmQC
+  classBr    = AIT.anndata$uns$QC_markers_[[AIT.anndata$uns$mode]]$classBr
+  subclassF  = AIT.anndata$uns$QC_markers_[[AIT.anndata$uns$mode]]$subclassF
+  rownames(cpmQC) <- rownames(countsQC) <- AIT.anndata$uns$QC_markers_[[AIT.anndata$uns$mode]]$qc_genes
+  colnames(cpmQC) <- colnames(countsQC) <- AIT.anndata$uns$QC_markers_[[AIT.anndata$uns$mode]]$qc_samples
   
   if(verbose) print("Format the reference and patch-seq data")
   ## -- NOTE: relevant reference data and type assignments are stored in refMarkerFile

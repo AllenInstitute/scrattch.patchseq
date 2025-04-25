@@ -2,6 +2,7 @@
 
 In this tutorial we demonstrate how to setup a Patchseq Shiny taxonomy using scrattch.patchseq for viewing on MolGen Shiny (AIBS internal) and running mapping algorithms against. This tutorial assumes you've already created a reference taxonomy from the [Tasic et al. 2016 study](https://www.nature.com/articles/nn.4216) by following the [scrattch.taxonomy example](https://github.com/AllenInstitute/scrattch.taxonomy/blob/main/examples/build_taxonomy.md). Query data from the [Gouwens, Sorensen, et al 2020 study](https://doi.org/10.1016/j.cell.2020.09.057) on GABAergic interneurons in primary visual cortex is used as an example. 
 
+*We strongly encourage running this code within the scrattch docker environment.  This example was created using docker://jeremyinseattle/scrattch:1.2 and will likely fail if run using any earlier scrattch versions.*
 
 
 ## Load libraries and reference taxonomy
@@ -32,8 +33,8 @@ query.logCPM <- logCPM(query.counts)
 
 ## Download metadata from Gouwens et al 2020 (to match data from scrattch.mapping tutorial) 
 ## -- These data and metadata would be replaced by your query data
-download.file(paste0(patchFolder,metadata_url),metadata_url)
 metadata_url <- "20200625_patchseq_metadata_mouse.csv.tar"
+download.file(paste0(patchFolder,metadata_url),metadata_url)
 untar(metadata_url)
 query.anno   <- as.data.frame(data.table::fread("20200625_patchseq_metadata_mouse/20200625_patchseq_metadata_mouse.csv"))
 rownames(query.anno) <- query.anno$transcriptomics_sample_id
@@ -45,10 +46,10 @@ query.anno   <- query.anno[colnames(query.counts),]
 Let's start by defining the cell classes which are off target for tasic2016 patchseq mapping and patchseqQC. For neocortex this is typically defined at the "class" level and are the "Non-neuronal" cell classes/types.
 ```R
 ## Identify the offtarget cell types manually.
-print(unique(AIT.anndata$obs$broad_type_label))
+print(unique(AIT.anndata$obs$broad_type))
 
 ## Add in the off.target annotation.
-AIT.anndata$obs$off_target = AIT.anndata$obs$broad_type_label
+AIT.anndata$obs$off_target = AIT.anndata$obs$broad_type
 
 ## First we need to add our off.target annotation to the factor levels
 levels(AIT.anndata$obs$off_target) = c(levels(AIT.anndata$obs$off_target), "Non-neuronal")
@@ -67,7 +68,7 @@ Now let's create a version of the taxonomy which is compatible with patchseqQC a
 AIT.anndata = buildPatchseqTaxonomy(AIT.anndata,
                                     mode.name = "patchseq", ## Give a name to off.target filterd taxonomy
                                     subsample = 100, ## Subsampling is only for PatchseqQC contamination calculation.
-                                    subclass.column = "cluster_label", ## Typically this is `subclass_label` but tasic2016 has no subclass annotation.
+                                    subclass.column = "primary_type_label", ## Typically this is `subclass_label` but tasic2016 has no subclass annotation.
                                     class.column = "off_target", ## The column by which off-target types are determined.
                                     off.target.types = c("Non-neuronal"), ## The off-target class.column labels for patchseqQC.
                                     num.markers = 50, ## Number of markers for each annotation in `class_label`
