@@ -64,11 +64,19 @@ compute_KLdiv <- function(query_probabilities, reference_probabilities, select.c
 tree_quality_call <- function(AIT.anndata, query.mapping){
   
   ## NEED TO ADD ALL THE TESTS HERE 
+  
+  ## Determine the cluster column 
+  hierarchy = AIT.anndata$uns$hierarchy
+  hierarchy = hierarchy[order(unlist(hierarchy))]
+  if(is.null(hierarchy)) stop("Hierarchy must be included in the standard AIT mode in proper format to create a mode.  Please run checkTaxonomy().")
+  celltypeColumn = names(hierarchy)[length(hierarchy)][[1]]
+  
+  ## The main function here:
   memb.ref   = as.matrix(reticulate::py_to_r(AIT.anndata$uns$memb[[AIT.anndata$uns$mode]]$memb.ref))
   map.df.ref = reticulate::py_to_r(AIT.anndata$uns$memb[[AIT.anndata$uns$mode]]$map.df.ref)
-  select.cl  = intersect(colnames(memb.ref),unique(AIT.anndata$obs$cluster_label))
+  select.cl  = intersect(colnames(memb.ref),unique(AIT.anndata$obs[,celltypeColumn]))
   memb.ref   = memb.ref[,select.cl]
-  cls <- as.character(AIT.anndata$obs[rownames(memb.ref),"cluster_label"])
+  cls <- as.character(AIT.anndata$obs[rownames(memb.ref),celltypeColumn])
   reference_probability = NULL
   for (cl in select.cl){
     reference_probability <- rbind(reference_probability,colMeans(memb.ref[cls==cl,]))

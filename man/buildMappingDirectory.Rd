@@ -10,6 +10,7 @@ buildMappingDirectory(
   query.data,
   query.metadata,
   query.mapping,
+  genes.to.use = paste0("highly_variable_genes_", AIT.anndata$uns$mode),
   doPatchseqQC = TRUE,
   metadata_names = NULL,
   min.confidence = 0.7,
@@ -27,6 +28,8 @@ buildMappingDirectory(
 \item{query.metadata}{A data frame of metadata for the query data.}
 
 \item{query.mapping}{Mapping results from \code{taxonomy_mapping()}, must be an mappingClass S4 object. If provided row names must match column names in query.data.}
+
+\item{genes.to.use}{The set of genes to use for patch-seq shiny creation (default is the highly_variable_genes associated with the current mode). Can be (1) a character vector of gene names, (2) a TRUE/FALSE (logical) vector of which genes to include, or (3) a column name in AIT.anndata$var corresponding to a logical vector of variable genes.}
 
 \item{doPatchseqQC}{Boolean indicating whether patch-seq QC metrics should be calculated (default) or not.}
 

@@ -14,6 +14,7 @@ addPatchseqQCMetrics(
   num.markers = 50,
   taxonomyDir = file.path(AIT.anndata$uns$taxonomyDir),
   add.dendrogram.markers = TRUE,
+  subsample = 100,
   ...
 )
 }
@@ -36,12 +37,14 @@ addPatchseqQCMetrics(
 
 \item{add.dendrogram.markers}{If TRUE (default=TRUE), will also add dendrogram markers to prep the taxonomy for tree mapping. Default is TRUE because the membership values calculated here as well as the associated tree mapping capabilities is required for a subset of QL metrics, including KL divergence calculations.}
 
+\item{subsample}{The number of cells to retain per cluster (default = 100). Note that subsampling happens AFTER retain.cells and retail.clusters filtering (only used if \code{buildTaxonomyMode} is run).}
+
 \item{...}{Additional variables to be passed to \code{addDendrogramMarkers} or \code{buildTaxonomyMode}
 
 The following variables are added to AIT.anndata$uns:
 $dend[\link{mode.name}]
 $filter[\link{mode.name}]
-$QC_markers[\link{mode.name}]
+$QC_markers_[\link{mode.name}]
 ...$markers,
 ...$countsQC,
 ...$cpmQC,
@@ -56,5 +59,5 @@ $memb[\link{mode.name}]  # Only if add.dendrogram.markers=TRUE
 AIT.anndata An updated AIT.anndata variable with the above content added to AIT.anndata$uns for the relevant mode.name.
 }
 \description{
-This function saves all the variables required for applying the patchseq QC algorithm \code{pathseqtools} (which is an more flexible version of the \code{patchSeqQC} algorithm) to AIT.anndata$uns. This is only used for patch-seq analysis.  Requirements for input include:
+This function saves all the variables required for applying the patchseq QC algorithm \code{patchseqtools} (which is an more flexible version of the \code{patchSeqQC} algorithm) to AIT.anndata$uns. This is only used for patch-seq analysis.  Requirements for input include:
 }
