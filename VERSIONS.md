@@ -4,6 +4,9 @@ Improvements for mapping and patch-seq for schema.
 
 ### Major changes
 * Adding html documentation for functions
+* Updated example for Mouse VISp
+* Fox for any hierarchy names (not just cluster_id or cluster_label)
+* Correct treatment of high variance / marker genes
 
 ### Minor changes
 * Bug fixes

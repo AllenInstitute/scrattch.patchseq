@@ -157,6 +157,7 @@ addPatchseqQCMetrics = function(AIT.anndata,
   ## OUTPUT AND RETURN THE RESULTS
 
   ## Save patch-seq mode into taxonomy anndata
+  AIT.anndata$uns$title <- gsub(".h5ad","",AIT.anndata$uns$title)
   AIT.anndata$write_h5ad(file.path(taxonomyDir, paste0(AIT.anndata$uns$title, ".h5ad")))
   
   return(AIT.anndata)

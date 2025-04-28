@@ -8,10 +8,12 @@ In this tutorial we demonstrate how to setup a Patchseq Shiny taxonomy using scr
 ## Load libraries and reference taxonomy
 ```R
 ## Load libraries
-library(scrattch.taxonomy)
-library(scrattch.mapping)
-library(scrattch.patchseq)
-library(reticulate) # For hierarchical mapping
+suppressPackageStartupMessages({
+  library(scrattch.taxonomy)
+  library(scrattch.mapping)
+  library(scrattch.patchseq)
+  library(reticulate)
+})
 cell_type_mapper <- import("cell_type_mapper") # For hierarchical mapping
 
 ## Specify which reference taxonomy to map against.
@@ -87,10 +89,12 @@ AIT.anndata = mappingMode(AIT.anndata, mode="patchseq")
 # This function is part of the 'scrattch.mapping' library
 query.mapping = taxonomy_mapping(AIT.anndata= AIT.anndata,
                                  query.data = query.logCPM,
+                                 genes.to.use="marker_genes_binary",
                                  corr.map   = TRUE, # Flags for which mapping algorithms to run
                                  tree.map   = TRUE, 
                                  seurat.map = TRUE, 
-                                 hierarchical.map = TRUE)
+                                 mapmycells.hierarchical.map = TRUE,
+                                 mapmycells.flat.map = TRUE)
 
 ## If you want the mapping data.frame and associated scores from the S4 mappingClass
 mapping.results = getMappingResults(query.mapping, scores=TRUE)
@@ -115,6 +119,7 @@ updated.query.anno <- buildMappingDirectory(
     query.data     = query.counts, ## Counts are required here (NOT cpm or logCPM)
     query.metadata = query.anno,
     query.mapping  = query.mapping, ## This has to be an S4 mappingClass from scrattch.mapping.
+    genes.to.use   = "marker_genes_binary",
     doPatchseqQC   = TRUE,  ## Set to FALSE if not needed or if buildPatchseqTaxonomy was not run.
     return.metrics = TRUE  ## Set to TRUE to return the updated metrics table
 )

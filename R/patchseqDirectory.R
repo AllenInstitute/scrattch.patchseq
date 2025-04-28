@@ -6,6 +6,7 @@
 #' @param query.metadata A data frame of metadata for the query data.  
 #' @param query.mapping Mapping results from `taxonomy_mapping()`, must be an mappingClass S4 object. If provided row names must match column names in query.data.
 #' @param doPatchseqQC Boolean indicating whether patch-seq QC metrics should be calculated (default) or not.
+#' @param genes.to.use The set of genes to use for patch-seq shiny creation (default is the highly_variable_genes associated with the current mode). Can be (1) a character vector of gene names, (2) a TRUE/FALSE (logical) vector of which genes to include, or (3) a column name in AIT.anndata$var corresponding to a logical vector of variable genes.
 #' @param metadata_names An optional named character vector where the vector NAMES correspond to columns in the metadata matrix and the vector VALUES correspond to how these metadata should be displayed in Shiny. This is used for writing the desc.feather file later.
 #' @param min.confidence Probability below which a cell cannot be assigned to a cell type (default 0.7).  In other words, if no cell types have probabilities greater than resolution.index, then the assigned cluster will be an internal node of the dendrogram. 
 #' @param return.metrics If TRUE (default=FALSE) will return an updated query.metadata data frame with additional metrics calculated as part of this function. Otherwise, these values are available in 'anno.feather'.
@@ -28,6 +29,7 @@ buildMappingDirectory = function(AIT.anndata,
                                  query.data,
                                  query.metadata,
                                  query.mapping,
+                                 genes.to.use = paste0("highly_variable_genes_",AIT.anndata$uns$mode),
                                  doPatchseqQC = TRUE,
                                  metadata_names = NULL,
                                  min.confidence = 0.7,
@@ -82,8 +84,9 @@ buildMappingDirectory = function(AIT.anndata,
   sample_id <- colnames(query.cpm); query.metadata$sample_id = sample_id; query.metadata$cell_id = sample_id
   gene      <- rownames(query.cpm)
 
-  ##
-  binary.genes <- intersect(AIT.anndata$var_names[AIT.anndata$var$highly_variable_genes], rownames(query.cpm))
+  ## Define the genes.to.use based on input
+  genes.to.use = .convert_gene_input_to_vector(AIT.anndata,genes.to.use)
+  binary.genes <- intersect(AIT.anndata$var_names[genes.to.use], rownames(query.cpm))
 
   ## Check for cells with empty data
   bad.cells    <- which(colSums(query.cpm[binary.genes,]>0)<=1)
