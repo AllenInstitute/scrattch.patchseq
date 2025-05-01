@@ -15,6 +15,7 @@ addPatchseqQCMetrics(
   taxonomyDir = file.path(AIT.anndata$uns$taxonomyDir),
   add.dendrogram.markers = TRUE,
   subsample = 100,
+  save.normalized.data = TRUE,
   ...
 )
 }
@@ -38,6 +39,8 @@ addPatchseqQCMetrics(
 \item{add.dendrogram.markers}{If TRUE (default=TRUE), will also add dendrogram markers to prep the taxonomy for tree mapping. Default is TRUE because the membership values calculated here as well as the associated tree mapping capabilities is required for a subset of QL metrics, including KL divergence calculations.}
 
 \item{subsample}{The number of cells to retain per cluster (default = 100). Note that subsampling happens AFTER retain.cells and retail.clusters filtering (only used if \code{buildTaxonomyMode} is run).}
+
+\item{save.normalized.data}{If TRUE (default), will save normalized data when writing out h5ad file.  Otherwise, will remove normalized data to save space (in which case it will be recalculated automatically upon \code{loadTaxonomy})}
 
 \item{...}{Additional variables to be passed to \code{addDendrogramMarkers} or \code{buildTaxonomyMode}
 

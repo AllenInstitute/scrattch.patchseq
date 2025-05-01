@@ -10,6 +10,7 @@
 #' @param metadata_names An optional named character vector where the vector NAMES correspond to columns in the metadata matrix and the vector VALUES correspond to how these metadata should be displayed in Shiny. This is used for writing the desc.feather file later.
 #' @param min.confidence Probability below which a cell cannot be assigned to a cell type (default 0.7).  In other words, if no cell types have probabilities greater than resolution.index, then the assigned cluster will be an internal node of the dendrogram. 
 #' @param return.metrics If TRUE (default=FALSE) will return an updated query.metadata data frame with additional metrics calculated as part of this function. Otherwise, these values are available in 'anno.feather'.
+#' @param embedding Name of the embedding to project patch-seq data against.  Default is to use X_default_[mode] if it exists; otherwise to use AIT.anndata$uns$default_embedding.
 #' @param verbose Should detail logging be printed to the screen?
 #' 
 #' This function writes files to the mappingFolder directory for visualization with molgen-shiny tools  
@@ -34,6 +35,7 @@ buildMappingDirectory = function(AIT.anndata,
                                  metadata_names = NULL,
                                  min.confidence = 0.7,
                                  return.metrics = FALSE,
+                                 embedding = NULL,
                                  verbose=TRUE
 ){
 
@@ -60,16 +62,7 @@ buildMappingDirectory = function(AIT.anndata,
   ##
   if(!file.exists(mappingFolder)) {stop(paste("Directory ",mappingFolder," could not be created. Please do so manually or try again."))}
 
-  if(verbose == TRUE) print("Gathering cluster medians from taxonomy folder.")
-
-  ## Read in cluster medians from uns file location (either within anndata object or from the folder [for back-compatibility])
-  if(!is.null(AIT.anndata$uns$stats[["standard"]]$medianmat)){
-    cl.summary = reticulate::py_to_r(AIT.anndata$uns$stats[["standard"]]$medianmat)  # Medians now stored in the uns to avoid needing to read files
-  } else {
-    cl.summary = read_feather(file.path(AIT.anndata$uns$taxonomyDir, "medians.feather")) %>% as.data.frame()
-  }
-  cl.dat = as.matrix(cl.summary[,-1]); rownames(cl.dat) = cl.summary[,1]
-
+  ##
   if(verbose == TRUE) print("Saving dendrogram to mapping folder.")
 
   ## Read in the reference tree and copy to new directory
@@ -85,7 +78,7 @@ buildMappingDirectory = function(AIT.anndata,
   gene      <- rownames(query.cpm)
 
   ## Define the genes.to.use based on input
-  genes.to.use = .convert_gene_input_to_vector(AIT.anndata,genes.to.use)
+  genes.to.use <- .convert_gene_input_to_vector(AIT.anndata,genes.to.use)
   binary.genes <- intersect(AIT.anndata$var_names[genes.to.use], rownames(query.cpm))
 
   ## Check for cells with empty data
@@ -207,8 +200,13 @@ buildMappingDirectory = function(AIT.anndata,
   write_feather(meta.data, file.path(mappingFolder,"anno.feather"))
   
   ## Project mapped data into existing umap (if it exists) or generate new umap otherwise
-  ref.umap     <- as.matrix(AIT.anndata$obsm[["X_umap"]][,colnames(AIT.anndata$obsm[["X_umap"]])!="sample_id"])
-  rownames(ref.umap) <- rownames(AIT.anndata$obsm[["X_umap"]])
+  if(is.null(embedding)) {
+    embedding <- paste0("X_default_",AIT.anndata$uns$mode)
+    if (!embedding %in% names(AIT.anndata$obsm))
+      embedding <- AIT.anndata$uns$default_embedding
+  }
+  ref.umap           <- as.matrix(AIT.anndata$obsm[[embedding]][,colnames(AIT.anndata$obsm[[embedding]])!="sample_id"])
+  rownames(ref.umap) <- rownames(AIT.anndata$obsm[[embedding]])
   ref.umap[is.na(ref.umap)] <- 0
   
   ##
@@ -217,12 +215,14 @@ buildMappingDirectory = function(AIT.anndata,
   query.pcs    <- prcomp(logCPM(query.cpm)[binary.genes,], scale = TRUE)$rotation
   
   if(diff(range(ref.umap))>0){
-    reference.logcpm <- t(AIT.anndata$X[,binary.genes])
+    ## Subset data to only include cells included in embedding marker genes
+    umap.ref.cells   <- rowSums(ref.umap==0)<2
+    reference.logcpm <- t(AIT.anndata$X[umap.ref.cells,binary.genes])
     
     ## Check for cells with empty data
-    bad.cells    <- which(colSums(reference.logcpm[binary.genes,]>0)<=1)
-    if(length(bad.cells)>0){
-      reference.logcpm[,bad.cells] <- rowMeans(reference.logcpm)
+    bad.cells  <- colSums(reference.logcpm>0)<=1
+    if(sum(bad.cells)>0){
+      reference.logcpm <- reference.logcpm[,!bad.cells]
       warning(paste("WARNING: the following reference cells do not express any marker genes and are almost definitely bad cells:",
                     paste(colnames(reference.logcpm)[bad.cells],collapse=", ")))
     }

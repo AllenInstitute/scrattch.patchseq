@@ -60,10 +60,12 @@
 <span>  <span class="va">query.data</span>,</span>
 <span>  <span class="va">query.metadata</span>,</span>
 <span>  <span class="va">query.mapping</span>,</span>
+<span>  genes.to.use <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste0</a></span><span class="op">(</span><span class="st">"highly_variable_genes_"</span>, <span class="va">AIT.anndata</span><span class="op">$</span><span class="va">uns</span><span class="op">$</span><span class="va">mode</span><span class="op">)</span>,</span>
 <span>  doPatchseqQC <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  metadata_names <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  min.confidence <span class="op">=</span> <span class="fl">0.7</span>,</span>
 <span>  return.metrics <span class="op">=</span> <span class="cn">FALSE</span>,</span>
+<span>  embedding <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  verbose <span class="op">=</span> <span class="cn">TRUE</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
@@ -92,6 +94,10 @@
 <dd><p>Mapping results from <code>taxonomy_mapping()</code>, must be an mappingClass S4 object. If provided row names must match column names in query.data.</p></dd>
 
 
+<dt id="arg-genes-to-use">genes.to.use<a class="anchor" aria-label="anchor" href="#arg-genes-to-use"></a></dt>
+<dd><p>The set of genes to use for patch-seq shiny creation (default is the highly_variable_genes associated with the current mode). Can be (1) a character vector of gene names, (2) a TRUE/FALSE (logical) vector of which genes to include, or (3) a column name in AIT.anndata$var corresponding to a logical vector of variable genes.</p></dd>
+
+
 <dt id="arg-dopatchseqqc">doPatchseqQC<a class="anchor" aria-label="anchor" href="#arg-dopatchseqqc"></a></dt>
 <dd><p>Boolean indicating whether patch-seq QC metrics should be calculated (default) or not.</p></dd>
 
@@ -106,6 +112,10 @@
 
 <dt id="arg-return-metrics">return.metrics<a class="anchor" aria-label="anchor" href="#arg-return-metrics"></a></dt>
 <dd><p>If TRUE (default=FALSE) will return an updated query.metadata data frame with additional metrics calculated as part of this function. Otherwise, these values are available in 'anno.feather'.</p></dd>
+
+
+<dt id="arg-embedding">embedding<a class="anchor" aria-label="anchor" href="#arg-embedding"></a></dt>
+<dd><p>Name of the embedding to project patch-seq data against.  Default is to use X_default_<a href="https://rdrr.io/r/base/mode.html" class="external-link">mode</a> if it exists; otherwise to use AIT.anndata$uns$default_embedding.</p></dd>
 
 
 <dt id="arg-verbose">verbose<a class="anchor" aria-label="anchor" href="#arg-verbose"></a></dt>

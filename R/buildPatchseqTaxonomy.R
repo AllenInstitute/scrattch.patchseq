@@ -16,6 +16,7 @@
 #' @param taxonomyDir The location to save shiny output (default = current working directory).
 #' @param add.dendrogram.markers If TRUE (default=TRUE), will also add dendrogram markers to prep the taxonomy for tree mapping. Default is TRUE because the membership values calculated here as well as the associated tree mapping capabilities is required for a subset of QL metrics, including KL divergence calculations.
 #' @param subsample The number of cells to retain per cluster (default = 100). Note that subsampling happens AFTER retain.cells and retail.clusters filtering (only used if `buildTaxonomyMode` is run).
+#' @param save.normalized.data If TRUE (default), will save normalized data when writing out h5ad file.  Otherwise, will remove normalized data to save space (in which case it will be recalculated automatically upon `loadTaxonomy`)
 #' @param ... Additional variables to be passed to `addDendrogramMarkers` or `buildTaxonomyMode`
 #' 
 #' The following variables are added to AIT.anndata$uns:  
@@ -49,6 +50,7 @@ addPatchseqQCMetrics = function(AIT.anndata,
                                 taxonomyDir = file.path(AIT.anndata$uns$taxonomyDir),
                                 add.dendrogram.markers = TRUE,
                                 subsample = 100,
+                                save.normalized.data = TRUE,
                                 ...
 ){
   
@@ -135,7 +137,7 @@ addPatchseqQCMetrics = function(AIT.anndata,
     ## Define the taxonomy mode here. 
     ## --- There are a LOT of parameters hidden in the '...', but the key piece here is we use the off.target.types for filtering
     AIT.anndata <- buildTaxonomyMode(AIT.anndata = AIT.anndata, mode.name = mode.name, retain.cells = !filter, 
-                                     retain.clusters = NULL, add.dendrogram.markers = FALSE, ...)
+                                     retain.clusters = NULL, add.dendrogram.markers = FALSE, write.taxonomy = FALSE, ...)
   }  
   
   ## Add dendrogram markers and membership tables, if requested
@@ -158,8 +160,23 @@ addPatchseqQCMetrics = function(AIT.anndata,
 
   ## Save patch-seq mode into taxonomy anndata
   AIT.anndata$uns$title <- gsub(".h5ad","",AIT.anndata$uns$title)
-  AIT.anndata$write_h5ad(file.path(taxonomyDir, paste0(AIT.anndata$uns$title, ".h5ad")))
+  if(!is.null(AIT.anndata$X)){
+    if(save.normalized.data){
+      print("===== Writing taxonomy anndata =====")
+      AIT.anndata$write_h5ad(file.path(taxonomyDir, paste0(AIT.anndata$uns$title, ".h5ad")))
+    } else {
+      print("===== Writing taxonomy anndata without saved normalized data =====")
+      X <- AIT.anndata$X
+      AIT.anndata$X = NULL
+      AIT.anndata$write_h5ad(file.path(taxonomyDir, paste0(AIT.anndata$uns$title, ".h5ad")))
+      AIT.anndata$X <- X
+    }
+  } else{
+    print("===== Writing taxonomy anndata, which does not contain any normalized data =====")
+    AIT.anndata$write_h5ad(file.path(taxonomyDir, paste0(AIT.anndata$uns$title, ".h5ad")))
+  }
   
+  ##
   return(AIT.anndata)
 }
 
