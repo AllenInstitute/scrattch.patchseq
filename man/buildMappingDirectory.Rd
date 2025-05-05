@@ -15,6 +15,7 @@ buildMappingDirectory(
   metadata_names = NULL,
   min.confidence = 0.7,
   return.metrics = FALSE,
+  embedding = NULL,
   verbose = TRUE
 )
 }
@@ -38,6 +39,8 @@ buildMappingDirectory(
 \item{min.confidence}{Probability below which a cell cannot be assigned to a cell type (default 0.7).  In other words, if no cell types have probabilities greater than resolution.index, then the assigned cluster will be an internal node of the dendrogram.}
 
 \item{return.metrics}{If TRUE (default=FALSE) will return an updated query.metadata data frame with additional metrics calculated as part of this function. Otherwise, these values are available in 'anno.feather'.}
+
+\item{embedding}{Name of the embedding to project patch-seq data against.  Default is to use X_default_\link{mode} if it exists; otherwise to use AIT.anndata$uns$default_embedding.}
 
 \item{verbose}{Should detail logging be printed to the screen?
 

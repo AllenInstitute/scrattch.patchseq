@@ -10,6 +10,7 @@
 #' @param metadata_names An optional named character vector where the vector NAMES correspond to columns in the metadata matrix and the vector VALUES correspond to how these metadata should be displayed in Shiny. This is used for writing the desc.feather file later.
 #' @param min.confidence Probability below which a cell cannot be assigned to a cell type (default 0.7).  In other words, if no cell types have probabilities greater than resolution.index, then the assigned cluster will be an internal node of the dendrogram. 
 #' @param return.metrics If TRUE (default=FALSE) will return an updated query.metadata data frame with additional metrics calculated as part of this function. Otherwise, these values are available in 'anno.feather'.
+#' @param embedding Name of the embedding to project patch-seq data against.  Default is to use X_default_[mode] if it exists; otherwise to use AIT.anndata$uns$default_embedding.
 #' @param verbose Should detail logging be printed to the screen?
 #' 
 #' This function writes files to the mappingFolder directory for visualization with molgen-shiny tools  
@@ -22,6 +23,7 @@
 #' --- tsne_desc.feather - table indicating which low-D representations to share  
 #' 
 #' @import reticulate
+#' @import Matrix
 #' 
 #' @export
 buildMappingDirectory = function(AIT.anndata, 
@@ -34,6 +36,7 @@ buildMappingDirectory = function(AIT.anndata,
                                  metadata_names = NULL,
                                  min.confidence = 0.7,
                                  return.metrics = FALSE,
+                                 embedding = NULL,
                                  verbose=TRUE
 ){
 
@@ -60,16 +63,7 @@ buildMappingDirectory = function(AIT.anndata,
   ##
   if(!file.exists(mappingFolder)) {stop(paste("Directory ",mappingFolder," could not be created. Please do so manually or try again."))}
 
-  if(verbose == TRUE) print("Gathering cluster medians from taxonomy folder.")
-
-  ## Read in cluster medians from uns file location (either within anndata object or from the folder [for back-compatibility])
-  if(!is.null(AIT.anndata$uns$stats[["standard"]]$medianmat)){
-    cl.summary = reticulate::py_to_r(AIT.anndata$uns$stats[["standard"]]$medianmat)  # Medians now stored in the uns to avoid needing to read files
-  } else {
-    cl.summary = read_feather(file.path(AIT.anndata$uns$taxonomyDir, "medians.feather")) %>% as.data.frame()
-  }
-  cl.dat = as.matrix(cl.summary[,-1]); rownames(cl.dat) = cl.summary[,1]
-
+  ##
   if(verbose == TRUE) print("Saving dendrogram to mapping folder.")
 
   ## Read in the reference tree and copy to new directory
@@ -85,11 +79,11 @@ buildMappingDirectory = function(AIT.anndata,
   gene      <- rownames(query.cpm)
 
   ## Define the genes.to.use based on input
-  genes.to.use = .convert_gene_input_to_vector(AIT.anndata,genes.to.use)
+  genes.to.use <- .convert_gene_input_to_vector(AIT.anndata,genes.to.use)
   binary.genes <- intersect(AIT.anndata$var_names[genes.to.use], rownames(query.cpm))
 
   ## Check for cells with empty data
-  bad.cells    <- which(colSums(query.cpm[binary.genes,]>0)<=1)
+  bad.cells    <- which(Matrix::colSums(query.cpm[binary.genes,]>0)<=1)
   if(length(bad.cells)>0){
     query.cpm[,bad.cells] <- rowMeans(query.cpm)
     warning(paste("WARNING: the following query cells do not express any marker genes and are almost definitely bad cells:",
@@ -207,8 +201,13 @@ buildMappingDirectory = function(AIT.anndata,
   write_feather(meta.data, file.path(mappingFolder,"anno.feather"))
   
   ## Project mapped data into existing umap (if it exists) or generate new umap otherwise
-  ref.umap     <- as.matrix(AIT.anndata$obsm[["X_umap"]][,colnames(AIT.anndata$obsm[["X_umap"]])!="sample_id"])
-  rownames(ref.umap) <- rownames(AIT.anndata$obsm[["X_umap"]])
+  if(is.null(embedding)) {
+    embedding <- paste0("X_default_",AIT.anndata$uns$mode)
+    if (!embedding %in% names(AIT.anndata$obsm))
+      embedding <- AIT.anndata$uns$default_embedding
+  }
+  ref.umap           <- as.matrix(AIT.anndata$obsm[[embedding]][,colnames(AIT.anndata$obsm[[embedding]])!="sample_id"])
+  rownames(ref.umap) <- rownames(AIT.anndata$obsm[[embedding]])
   ref.umap[is.na(ref.umap)] <- 0
   
   ##
@@ -217,15 +216,17 @@ buildMappingDirectory = function(AIT.anndata,
   query.pcs    <- prcomp(logCPM(query.cpm)[binary.genes,], scale = TRUE)$rotation
   
   if(diff(range(ref.umap))>0){
-    reference.logcpm <- t(AIT.anndata$X[,binary.genes])
+    ## Subset data to only include cells included in embedding marker genes
+    umap.ref.cells   <- Matrix::rowSums(ref.umap==0)<2
+    reference.logcpm <- Matrix::t(AIT.anndata$X[,binary.genes])
     
     ## Check for cells with empty data
-    bad.cells    <- which(colSums(reference.logcpm[binary.genes,]>0)<=1)
-    if(length(bad.cells)>0){
-      reference.logcpm[,bad.cells] <- rowMeans(reference.logcpm)
+    bad.cells  <- Matrix::colSums(reference.logcpm>0)<=1
+    if(sum(bad.cells)>0){
       warning(paste("WARNING: the following reference cells do not express any marker genes and are almost definitely bad cells:",
                     paste(colnames(reference.logcpm)[bad.cells],collapse=", ")))
     }
+    reference.logcpm <- reference.logcpm[,(!bad.cells)&(umap.ref.cells)]
     
     ## Project mapped data into existing umap space
     reference.pcs    <- prcomp(reference.logcpm, scale = TRUE)$rotation
@@ -251,4 +252,38 @@ buildMappingDirectory = function(AIT.anndata,
   # Return query metadata if requested
   if(return.metrics)
     return(query.metadata)
+}
+
+
+
+
+# We need a copy of the function below from scrattch.mapping for this function
+
+#' Convert entered gene set to a logical vector, or return errors
+#'
+#' @param AIT.anndata A reference taxonomy object.
+#' @param genes.to.use The set of genes to use for correlation calculation and/or Seurat integration (default is the highly_variable_genes associated with the current mode). Can be (1) a character vector of gene names, (2) a TRUE/FALSE (logical) vector of which genes to include, or (3) a column name in AIT.anndata$var corresponding to a logical vector of variable genes.
+#' 
+#' @return entered gene set as a logical vector
+#' 
+#' @export
+.convert_gene_input_to_vector <- function(AIT.anndata, genes.to.use){
+  if(is.null(genes.to.use))
+    genes.to.use = paste0("highly_variable_genes_",AIT.anndata$uns$mode)
+  if(length(genes.to.use)==1){
+    if(!is.element(genes.to.use,colnames(AIT.anndata$var))){
+      options <- setdiff(colnames(AIT.anndata$var),c("gene","ensembl_id","common_genes"))
+      if(length(options>0)){
+        stop(paste("Highly variable genes for",genes.to.use,"not found! Options include",paste(options,collapse=" or "),"or you can enter your own set of variable genes in genes.to.use if you want to run correlation or Seurat mapping."))  
+      } else {
+        stop(paste("Highly variable genes for",genes.to.use,"not found, and no available gene lists are embedded in AIT file.  Please enter your own set of variable genes in genes.to.use if you want to run correlation or Seurat mapping."))
+      }
+      highly_variable_genes_mode = AIT.anndata$var$highly_variable_genes
+    } else {
+      genes.to.use = AIT.anndata$var[,genes.to.use]
+    }
+  } else if (length(genes.to.use)!=dim(AIT.anndata$var)[1]){
+    genes.to.use <- rownames(AIT.anndata$var) %in% genes.to.use
+  }
+  genes.to.use
 }
