@@ -65,8 +65,10 @@ addPatchseqQCMetrics = function(AIT.anndata,
   if(!is.element(class.column, colnames(AIT.anndata$obs))){stop(paste(class.column,"is not a column in the metadata data frame."))}
   if(!dir.exists(file.path(taxonomyDir))){stop("Specified taxonomy folder does not exist.")}
   
+  
   ## NEXT SUBSAMPLE THE DATA FOR QC AND DEFINE OFF-TARGET TYPES
-
+  print("===== Define QC metrics and marker genes for patchseq taxonomy with addPatchseqQCMetrics =====")
+  
   ## Subsample and filter metadata and data
   kpSamp2  = subsampleCells(AIT.anndata$obs[,subclass.column], subclass.subsample)
   goodSamp = !is.na(AIT.anndata$obs[,class.column])    # For back-compatibility; usually not used
@@ -92,6 +94,7 @@ addPatchseqQCMetrics = function(AIT.anndata,
   if(sum(offTarget)==0){
     stop("No valid off-target classes or subclasses are provided. Please update off.target.types accordingly.")
   }
+  
   
   ## DEFINE QC PARAMETERS AND ASSOCIATED MARKER GENES AND SAVE TO uns
   
@@ -129,6 +132,7 @@ addPatchseqQCMetrics = function(AIT.anndata,
   if(celltypeColumn!="cluster_id") warning("AIT schema requires clusters to be in 'cluster_id' slot. We recommend calling the finest level of the hierarchy as 'cluster_id'.")
   
   if(!(mode.name %in% names(AIT.anndata$uns$filter))){
+    print(paste("===== Building a new taxonomy mode for",mode.name,"====="))
     ## Filter out off target cells along with additional cells beyond those subsampled
     ## ---  If the mode.name is new, this filter is used for the "retain" input for buildTaxonomyMode
     filter = is.element(AIT.anndata$obs[,class.column], off.target.types) | is.element(AIT.anndata$obs[,subclass.column], off.target.types)
@@ -143,7 +147,7 @@ addPatchseqQCMetrics = function(AIT.anndata,
   ## Add dendrogram markers and membership tables, if requested
   if(add.dendrogram.markers){
     
-    print("===== Adding dendrogram markers and membership tables for tree mapping =====")
+    print("===== Adding dendrogram markers and membership tables for tree mapping from addPatchseqQCMetrics =====")
     tryCatch({
       AIT.anndata = addDendrogramMarkers(AIT.anndata, 
                                          mode=mode.name,  # "standard",     # NOTE: WE MIGHT NEED THIS FOR "standard" TOO, but skip for now. 
@@ -157,23 +161,25 @@ addPatchseqQCMetrics = function(AIT.anndata,
   
   
   ## OUTPUT AND RETURN THE RESULTS
+  print("===== Output and return results from addPatchseqQCMetrics =====")
 
   ## Save patch-seq mode into taxonomy anndata
   AIT.anndata$uns$title <- gsub(".h5ad","",AIT.anndata$uns$title)
+  h5ad.file = file.path(taxonomyDir, paste0(AIT.anndata$uns$title, ".h5ad"))
   if(!is.null(AIT.anndata$X)){
     if(save.normalized.data){
       print("===== Writing taxonomy anndata =====")
-      AIT.anndata$write_h5ad(file.path(taxonomyDir, paste0(AIT.anndata$uns$title, ".h5ad")))
+      AIT.anndata$write_h5ad(h5ad.file)
     } else {
       print("===== Writing taxonomy anndata without saved normalized data =====")
       X <- AIT.anndata$X
       AIT.anndata$X = NULL
-      AIT.anndata$write_h5ad(file.path(taxonomyDir, paste0(AIT.anndata$uns$title, ".h5ad")))
+      AIT.anndata$write_h5ad(h5ad.file)
       AIT.anndata$X <- X
     }
   } else{
     print("===== Writing taxonomy anndata, which does not contain any normalized data =====")
-    AIT.anndata$write_h5ad(file.path(taxonomyDir, paste0(AIT.anndata$uns$title, ".h5ad")))
+    AIT.anndata$write_h5ad(h5ad.file)
   }
   
   ##
@@ -192,3 +198,4 @@ addPatchseqQCMetrics = function(AIT.anndata,
 #'
 #' @export
 buildPatchseqTaxonomy <- function(...) { addPatchseqQCMetrics(...) }
+

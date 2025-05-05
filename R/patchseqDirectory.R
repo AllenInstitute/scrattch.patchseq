@@ -23,6 +23,7 @@
 #' --- tsne_desc.feather - table indicating which low-D representations to share  
 #' 
 #' @import reticulate
+#' @import Matrix
 #' 
 #' @export
 buildMappingDirectory = function(AIT.anndata, 
@@ -82,7 +83,7 @@ buildMappingDirectory = function(AIT.anndata,
   binary.genes <- intersect(AIT.anndata$var_names[genes.to.use], rownames(query.cpm))
 
   ## Check for cells with empty data
-  bad.cells    <- which(colSums(query.cpm[binary.genes,]>0)<=1)
+  bad.cells    <- which(Matrix::colSums(query.cpm[binary.genes,]>0)<=1)
   if(length(bad.cells)>0){
     query.cpm[,bad.cells] <- rowMeans(query.cpm)
     warning(paste("WARNING: the following query cells do not express any marker genes and are almost definitely bad cells:",
@@ -216,16 +217,16 @@ buildMappingDirectory = function(AIT.anndata,
   
   if(diff(range(ref.umap))>0){
     ## Subset data to only include cells included in embedding marker genes
-    umap.ref.cells   <- rowSums(ref.umap==0)<2
-    reference.logcpm <- t(AIT.anndata$X[umap.ref.cells,binary.genes])
+    umap.ref.cells   <- Matrix::rowSums(ref.umap==0)<2
+    reference.logcpm <- Matrix::t(AIT.anndata$X[,binary.genes])
     
     ## Check for cells with empty data
-    bad.cells  <- colSums(reference.logcpm>0)<=1
+    bad.cells  <- Matrix::colSums(reference.logcpm>0)<=1
     if(sum(bad.cells)>0){
-      reference.logcpm <- reference.logcpm[,!bad.cells]
       warning(paste("WARNING: the following reference cells do not express any marker genes and are almost definitely bad cells:",
                     paste(colnames(reference.logcpm)[bad.cells],collapse=", ")))
     }
+    reference.logcpm <- reference.logcpm[,(!bad.cells)&(umap.ref.cells)]
     
     ## Project mapped data into existing umap space
     reference.pcs    <- prcomp(reference.logcpm, scale = TRUE)$rotation
@@ -251,4 +252,38 @@ buildMappingDirectory = function(AIT.anndata,
   # Return query metadata if requested
   if(return.metrics)
     return(query.metadata)
+}
+
+
+
+
+# We need a copy of the function below from scrattch.mapping for this function
+
+#' Convert entered gene set to a logical vector, or return errors
+#'
+#' @param AIT.anndata A reference taxonomy object.
+#' @param genes.to.use The set of genes to use for correlation calculation and/or Seurat integration (default is the highly_variable_genes associated with the current mode). Can be (1) a character vector of gene names, (2) a TRUE/FALSE (logical) vector of which genes to include, or (3) a column name in AIT.anndata$var corresponding to a logical vector of variable genes.
+#' 
+#' @return entered gene set as a logical vector
+#' 
+#' @export
+.convert_gene_input_to_vector <- function(AIT.anndata, genes.to.use){
+  if(is.null(genes.to.use))
+    genes.to.use = paste0("highly_variable_genes_",AIT.anndata$uns$mode)
+  if(length(genes.to.use)==1){
+    if(!is.element(genes.to.use,colnames(AIT.anndata$var))){
+      options <- setdiff(colnames(AIT.anndata$var),c("gene","ensembl_id","common_genes"))
+      if(length(options>0)){
+        stop(paste("Highly variable genes for",genes.to.use,"not found! Options include",paste(options,collapse=" or "),"or you can enter your own set of variable genes in genes.to.use if you want to run correlation or Seurat mapping."))  
+      } else {
+        stop(paste("Highly variable genes for",genes.to.use,"not found, and no available gene lists are embedded in AIT file.  Please enter your own set of variable genes in genes.to.use if you want to run correlation or Seurat mapping."))
+      }
+      highly_variable_genes_mode = AIT.anndata$var$highly_variable_genes
+    } else {
+      genes.to.use = AIT.anndata$var[,genes.to.use]
+    }
+  } else if (length(genes.to.use)!=dim(AIT.anndata$var)[1]){
+    genes.to.use <- rownames(AIT.anndata$var) %in% genes.to.use
+  }
+  genes.to.use
 }
