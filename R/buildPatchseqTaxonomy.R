@@ -1,6 +1,6 @@
 #' Save marker genes for patchSeqQC
 #'
-#' This function saves all the variables required for applying the patchseq QC algorithm `patchseqtools` (which is an more flexible version of the `patchSeqQC` algorithm) to AIT.anndata$uns. This is only used for patch-seq analysis.  Requirements for input include:
+#' This function (optionally) creates a new taxonomy mode using `buildTaxonomyMode`, and then saves all the variables required for applying the patchseq QC algorithm `patchseqtools` (which is an more flexible version of the `patchSeqQC` algorithm) to AIT.anndata$uns. This is only used for patch-seq analysis.  Requirements for input include:
 # ----- Subclass calls for each cell
 # ----- Broad class class calls for each cell
 # ----- Distinction of neuron (e.g., mappable type) vs. non-neuron (e.g., contamination type)
@@ -17,6 +17,8 @@
 #' @param add.dendrogram.markers If TRUE (default=TRUE), will also add dendrogram markers to prep the taxonomy for tree mapping. Default is TRUE because the membership values calculated here as well as the associated tree mapping capabilities is required for a subset of QL metrics, including KL divergence calculations.
 #' @param subsample The number of cells to retain per cluster (default = 100). Note that subsampling happens AFTER retain.cells and retail.clusters filtering (only used if `buildTaxonomyMode` is run).
 #' @param save.normalized.data If TRUE (default), will save normalized data when writing out h5ad file.  Otherwise, will remove normalized data to save space (in which case it will be recalculated automatically upon `loadTaxonomy`)
+#' @param highly_variable_genes Set of features defined as highly variable genes OR a number of binary genes to calculate (we recommend ~1000 - ~5000, for <100 to ~5000 cell types). If a feature list is provided, provide either as a named list of vectors, or as a single vector (in which case the name "highly_variable_genes_[mode.name]" will be used). "highly_variable_genes_[mode.name]" will also be used for calculated variable genes. Optional input, but for proper mapping we recommend including either highly_variable_genes or marker_genes. The default is 1000, which will calculate variable genes (and embeddings) based on the top 1000 binary genes
+#' @param embeddings Dimensionality reduction coordinate data.frame with 2 columns or a string with the column name for marker_genes or variable_genes from which a UMAP should be calculated. If coordinates are provided, rownames must be equal to colnames of counts.  Either provide as a named list or as a single data.frame (in which case the name "default_[mode.name]" will be used). The default is to calculate an embedding based on the highly_variable_genes.
 #' @param ... Additional variables to be passed to `addDendrogramMarkers` or `buildTaxonomyMode`
 #' 
 #' The following variables are added to AIT.anndata$uns:  
@@ -32,6 +34,8 @@
 #' $memb[[mode.name]]  # Only if add.dendrogram.markers=TRUE
 #' ...$memb.ref,  
 #' ...$map.df.ref  
+#' 
+#' Note that additional variables are added corresponding to mode.name, if buildTaxonomyMode is run. 
 #' 
 #' @import patchseqtools
 #' @import scrattch.hicat
@@ -51,6 +55,8 @@ addPatchseqQCMetrics = function(AIT.anndata,
                                 add.dendrogram.markers = TRUE,
                                 subsample = 100,
                                 save.normalized.data = TRUE,
+                                highly_variable_genes = 1000,
+                                embeddings = paste0("highly_variable_genes_",mode.name),
                                 ...
 ){
   
@@ -141,7 +147,8 @@ addPatchseqQCMetrics = function(AIT.anndata,
     ## Define the taxonomy mode here. 
     ## --- There are a LOT of parameters hidden in the '...', but the key piece here is we use the off.target.types for filtering
     AIT.anndata <- buildTaxonomyMode(AIT.anndata = AIT.anndata, mode.name = mode.name, retain.cells = !filter, 
-                                     retain.clusters = NULL, add.dendrogram.markers = FALSE, write.taxonomy = FALSE, ...)
+                                     retain.clusters = NULL, add.dendrogram.markers = FALSE, highly_variable_genes = highly_variable_genes, 
+                                     embeddings = embeddings, write.taxonomy = FALSE, ...)
   }  
   
   ## Add dendrogram markers and membership tables, if requested
@@ -190,11 +197,50 @@ addPatchseqQCMetrics = function(AIT.anndata,
 
 #' Save marker genes and QC metrics for patchSeqQC
 #'
-#' This is the same as addPatchseqQCMetrics, but the name buildPatchseqTaxonomy is kept for back-compatibility
+#' This function (optionally) creates a new taxonomy mode using `buildTaxonomyMode`, and then saves all the variables required for applying the patchseq QC algorithm `patchseqtools` (which is an more flexible version of the `patchSeqQC` algorithm) to AIT.anndata$uns. This is only used for patch-seq analysis.  Requirements for input include:
+# ----- Subclass calls for each cell
+# ----- Broad class class calls for each cell
+# ----- Distinction of neuron (e.g., mappable type) vs. non-neuron (e.g., contamination type)
+#
+# This is the same as addPatchseqQCMetrics, but the name buildPatchseqTaxonomy is kept for back-compatibility. 
 #'
-#' @param ... Variables to be passed to `buildPatchseqTaxonomy`
+#' @param AIT.anndata A reference taxonomy anndata object.
+#' @param mode.name A name to identify the taxonomy mode to add QC metrics for (default is the current mode). If the mode does not yet exist, buildPatchseqTaxonomy will call buildTaxonomyMode using the sampled data from the `class.column`, `subclass.column`, and `off.target.types`.
+#' @param subclass.column Column name corresponding to the moderate-resolution cell types used for the cell types of interest (default = "subclass_label").
+#' @param class.column Column name corresponding to the low-resolution cell types used for the off-target cell types (default = "class_label").
+#' @param off.target.types A character vector of off-target (also known as 'contamination') cell types.  This must include at least one of the cell types found in "class.column" and/or "subclass.column" (both columns are checked)
+
+#' @param subclass.subsample The number of cells to retain for PatchseqQC contamination calculation (default = 100, probably no need to change).
+#' @param num.markers The maximum number of markers to calculate per node per direction (default = 50)
+#' @param taxonomyDir The location to save shiny output (default = current working directory).
+#' @param add.dendrogram.markers If TRUE (default=TRUE), will also add dendrogram markers to prep the taxonomy for tree mapping. Default is TRUE because the membership values calculated here as well as the associated tree mapping capabilities is required for a subset of QL metrics, including KL divergence calculations.
+#' @param subsample The number of cells to retain per cluster (default = 100). Note that subsampling happens AFTER retain.cells and retail.clusters filtering (only used if `buildTaxonomyMode` is run).
+#' @param save.normalized.data If TRUE (default), will save normalized data when writing out h5ad file.  Otherwise, will remove normalized data to save space (in which case it will be recalculated automatically upon `loadTaxonomy`)
+#' @param highly_variable_genes Set of features defined as highly variable genes OR a number of binary genes to calculate (we recommend ~1000 - ~5000, for <100 to ~5000 cell types). If a feature list is provided, provide either as a named list of vectors, or as a single vector (in which case the name "highly_variable_genes_[mode.name]" will be used). "highly_variable_genes_[mode.name]" will also be used for calculated variable genes. Optional input, but for proper mapping we recommend including either highly_variable_genes or marker_genes. The default is 1000, which will calculate variable genes (and embeddings) based on the top 1000 binary genes
+#' @param embeddings Dimensionality reduction coordinate data.frame with 2 columns or a string with the column name for marker_genes or variable_genes from which a UMAP should be calculated. If coordinates are provided, rownames must be equal to colnames of counts.  Either provide as a named list or as a single data.frame (in which case the name "default_[mode.name]" will be used). Optional - if nothing is provided (default=NULL) the relevant subset of the default standard embedding will be used.
+#' @param ... Additional variables to be passed to `addDendrogramMarkers` or `buildTaxonomyMode`
 #' 
-#' @return AIT.anndata An updated AIT.anndata variable.
+#' The following variables are added to AIT.anndata$uns:  
+#' $dend[[mode.name]]  
+#' $filter[[mode.name]]  
+#' $QC_markers_[[mode.name]]  
+#' ...$markers,  
+#' ...$countsQC,  
+#' ...$cpmQC,
+#' ...$classBr,  
+#' ...$subclassF,  
+#' ...$allMarkers  
+#' $memb[[mode.name]]  # Only if add.dendrogram.markers=TRUE
+#' ...$memb.ref,  
+#' ...$map.df.ref  
+#' 
+#' Note that additional variables are added corresponding to mode.name, if buildTaxonomyMode is run. 
+#' 
+#' @import patchseqtools
+#' @import scrattch.hicat
+#' @import reticulate
+#'
+#' @return AIT.anndata An updated AIT.anndata variable with the above content added to AIT.anndata$uns for the relevant mode.name.
 #'
 #' @export
 buildPatchseqTaxonomy <- function(...) { addPatchseqQCMetrics(...) }

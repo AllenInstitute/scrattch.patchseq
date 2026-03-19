@@ -1,3 +1,15 @@
+## scrattch.patchseq v1.2.1
+
+Improvements for mapping and patch-seq for schema.
+
+### Minor changes
+* Bug fixes for correct UMAP generation in buildMappingDirectory
+* Updated human MTG example
+* More sensible defaults for buildPatchseqTaxonomy
+* Updated documentation
+
+--
+
 ## scrattch.patchseq v1.2
 
 Improvements for mapping and patch-seq for schema.
