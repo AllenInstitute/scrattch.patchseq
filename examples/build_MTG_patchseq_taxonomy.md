@@ -1,7 +1,11 @@
 
 # Tutorial: Building a Patch-seq Shiny taxonomy (start to finish) - Human MTG
 
-In this example we demonstrate how to setup a Patch-seq Shiny taxonomy using scrattch.mapping for viewing on MolGen Shiny and running mapping algorithms against. This tutorial parallels the other tutorial for building a Patch-seq Shiny taxonomy, but using the SEA-AD taxonomy based only on adult neurotypical donors [Gabitto, Travaglini et al taxonomy](https://www.nature.com/articles/s41593-024-01774-5) as reference and query Patch-seq data from [Berg et al 2020](https://www.nature.com/articles/s41586-021-03813-8). This example also includes a bit more explanatory text and does not assume you've created the taxonomy yet. If you are bringing your own data to the tutorial you can replace all sections that say "**FOR EXAMPLE ONLY**" with your own data munging steps. 
+In this tutorial we demonstrate how to setup an Allen Institute Taxonomy object using scrattch.taxonomy--see the [schema definitions](https://github.com/AllenInstitute/AllenInstituteTaxonomy/tree/main/schema) for more detail--and then how to prepare it for Patch-seq mapping and QC. We first use data from middle temporal gyrus of five neurotypical human donors, along with associated metadata and cell type assignments created as part of the Seattle Alzheimer's disease brain cell atlas (SEA-AD; [Gabitto, Travaglini et al 2023](https://www.nature.com/articles/s41593-024-01774-5)) to generate a reference data set. These data are publicly accessible at https://portal.brain-map.org/atlases-and-data/rnaseq/human-mtg-10x_sea-ad. These data are already QCed and nicely packaged in h5ad (counts and metadata) and an associated dendrogram files. "cluster_label", "subclass_label", and "class_label" correspond to SEA-AD supertype, subclass, and class, respectively, and are used for defining the hierarchy. If a reference taxonomy has already been generated, then this step can be skipped.
+
+The second component of this tutorial is for building and mapping to the patch-seq taxonomy. Specifically, we create a child taxonomy only including neuronal cells which includes all relevant statistics and QC metrics, and map query Patch-seq data from [Berg et al 2020](https://www.nature.com/articles/s41586-021-03813-8) to reference cells types using multiple algorithms. This example is more detailed (and more up to date) than the other example and also includes a bit more explanatory text, and does not assume you've created the taxonomy yet. If you are bringing your own data to the tutorial you can replace all sections that say "**FOR EXAMPLE ONLY**" with your own data munging steps. 
+
+*We strongly encourage running this code within the scrattch docker environment.  This example was created using docker://alleninst/scrattch:1.1.4.1 and will likely fail if run using any earlier scrattch versions.* 
 
 For creating a standard taxonomy and mapping against it, the following input variables are required: 
 
@@ -29,6 +33,8 @@ cell_type_mapper <- import("cell_type_mapper") # For hierarchical mapping
 ## Specify which reference taxonomy to map against.
 ## -- Replace folder and file name with correct location
 taxonomyDir = getwd() 
+if(!file.exists(taxonomyDir)) dir.create(taxonomyDir)
+setwd(taxonomyDir)
 ```
 
 ## Part 1: Building the taxonomy
@@ -64,52 +70,67 @@ cn <- c("sample_name","cluster_label","cluster_confidence","subclass_label","cla
         "external_donor_name_label","age_label","donor_sex_label")
 taxonomy.metadata = seaad_data$obs[keepCells,cn]
 
-## Ensure count matrix and annotations are in the same order (this shouldn't be needed)
+## Ensure count matrix and annotations are in the same order
 taxonomy.metadata = taxonomy.metadata[match(rownames(taxonomy.counts), taxonomy.metadata$sample_name),]
+
+## Remove "_label" from column names (these are included for historical reasons)
 colnames(taxonomy.metadata) <- gsub("_label","",colnames(taxonomy.metadata))
-
-## Transpose the counts matrix (... for now; code in process to avoid transposing large matrices)
-taxonomy.counts <- t(taxonomy.counts)
-taxonomy.counts <- as(taxonomy.counts, "dgCMatrix")
 ```
 
-### 1.2: Create the (parent) AIT Taxonomy 
+#### 1.2: Align metadata to AIT schema
 
-This section will create the parent taxonomy for the reference data.  In this case, we include up 1000 cells for **every** cell type defined in Hodge et al 2019, along with their associated metadata, and will subsample the clusters and cells further at a later step.
-
-This code block loads the scrattch.taxonomy library, and then calculates variables genes and defines a UMAP **using a very basic approach**.  If variable genes and/or 2-dimensional coordinates already exist, they can be provided to buildTaxonomy below rather than calculated in this way. 
-
-```R
-## Compute top 1000 binary marker genes for clusters
-binary.genes = top_binary_genes(taxonomy.counts, taxonomy.metadata$cluster, 1000)
-
-## Compute UMAP coordinates
-pcs  <- prcomp(logCPM(taxonomy.counts)[binary.genes,], scale = TRUE)$rotation
-umap.coords = umap(pcs[,1:30])$layout
-
-## Set rownames to your annotation and UMAP data.frames (Required!)
-rownames(umap.coords) = colnames(taxonomy.counts)
-```
-
-The next step builds the parent taxonomy using a single call to the function buildTaxonomy.  After running this script, your taxonomy will contain all of the data and metadata in standard formats, and will be ready for correlation and tree mapping.  However, **you still need to run buildPatchseqMapping in the next section** for tree mapping, subsetting, and other QC metrics.  
+Next, we update the metadata fields to align with the AIT schema.  *While we strongly encourage the use of the AIT schema when generating the reference taxonomy, we note that addition of these metadata columns will not impact mapping results.*
 
 ```R
 ## Set up the levels of hierarchy for all mapping functions later
 ## -- This MUST be from broadest to most specific types, and NOT vice versa
-hierarchy = list("class_label", "subclass_label", "cluster_label")
+## -- Note that "cluster" is the SEAAD supertypes and will be named "cluster_id" below
+hierarchy = list("class", "subclass", "cluster_id")
 
-## Build Shiny taxonomy 
-AIT.anndata = buildTaxonomy(
-      counts        = taxonomy.counts,
-      meta.data     = taxonomy.metadata,
-      dend          = seaad_dend,  # If this is omitted buildTaxonomy will generate a dendrogram
-      feature.set   = binary.genes,
-      umap.coords   = umap.coords,
-      taxonomyTitle = "AI_taxonomy",  # Determines the file name
-      taxonomyDir   = taxonomyDir,
-      subsample     = 100, # A lot of subsampling to speed up calculations
-      hierarchy     = hierarchy
-)
+## Identify Ensembl IDs 
+# Common NCBI taxIDs: Human = 9606; Mouse = 10090; Macaque (rhesus) = 9544; Marmoset = 9483
+ensembl_id <- geneSymbolToEnsembl(gene.symbols = colnames(taxonomy.counts), ncbi.taxid = 9606)
+
+## Update the metadata to align with AIT schema
+colnames(taxonomy.metadata)[colnames(taxonomy.metadata)=="cluster"]             = "cluster_id"
+colnames(taxonomy.metadata)[colnames(taxonomy.metadata)=="donor_sex"]           = "self_reported_sex"
+colnames(taxonomy.metadata)[colnames(taxonomy.metadata)=="external_donor_name"] = "donor_id"
+taxonomy.metadata$load_id           = "Not reported"
+taxonomy.metadata$assay             = "10x 3' v3"  
+taxonomy.metadata$organism          = "Homo sapiens"
+taxonomy.metadata$anatomical_region = "Middle temporal gyrus"
+taxonomy.metadata$suspension_type   = "nucleus"
+taxonomy.metadata$is_primary_data   = TRUE
+taxonomy.metadata$self_reported_ethnicity = "unknown"
+
+## Save final metadata data frame
+taxonomy.anno <- taxonomy.metadata
+```
+
+### 1.3: Create the (parent) AIT Taxonomy 
+
+This section will create the parent taxonomy for the reference data.  In this case, we include up 100 cells for **every** cell type defined in the SEA-AD reference taxonomy (subsampled above), along with their associated metadata. The buildTaxonomy function builds in steps to calculate variables genes and defining a UMAP **using a very basic approach**.  If variable genes and/or 2-dimensional coordinates already exist, they can be provided to buildTaxonomy rather than calculated in this way. After running this script, your taxonomy will contain all of the data and metadata in standard formats, and will be ready for correlation, MapMyCells, and tree mapping.  However, **you still need to run buildPatchseqMapping in the next section** for mapping to the relevant subset of the taxonomy and for calculating other QC metrics.  
+
+```R
+## Build Allen Insitute Taxonomy, for large taxonomies you can pass in tpm and cluster_stats if pre-computed.
+AIT.anndata = buildTaxonomy(title="SEAAD_MTG",
+                            meta.data = taxonomy.anno,
+                            hierarchy = hierarchy,
+                            ## --- Optional parameters ---
+                            counts = taxonomy.counts,
+                            normalized.expr = NULL,
+                            highly_variable_genes = 1000, ## Select top 1000 binary genes
+                            marker_genes = NULL,
+                            ensembl_id = ensembl_id,
+                            cluster_stats = NULL, ## Pre-computed cluster stats
+                            embeddings = "highly_variable_genes_standard", # Compute UMAP coordinates internally
+                            ##
+                            dend = seaad_dend, ## Pre-computed dendrogram
+                            taxonomyDir = getwd(), ## This is where our taxonomy will be created
+                            addMapMyCells = TRUE, 
+                            ##
+                            add.dendrogram.markers = TRUE,  # Allow tree mapping. Very slow, but required for downstream patch-seq analysis.
+                            subsample=100)
 
 ## If you also want to create a shiny directory for the REFERENCE data set, uncomment this section
 ## Create Shiny directory (AIBS-internal)
@@ -119,26 +140,44 @@ AIT.anndata = buildTaxonomy(
 
 ## Alternatively, if you have already created the taxonomy, you can load it using "loadTaxonomy"
 ## Load the taxonomy (from h5ad file name)
-#AIT.anndata = loadTaxonomy(taxonomyDir, "AI_taxonomy.h5ad")
+#AIT.anndata = loadTaxonomy(taxonomyDir, "SEAAD_MTG.h5ad")
 ```
 
-### 1.3: Create a child taxonomy for patch-seq mapping
+### 1.4: Create a child taxonomy for patch-seq mapping
 
 Now let's create a version of the taxonomy which is compatible with patchseqQC and can be filtered to remove off target cells from mapping. **You are creating a new version of the base taxonomy which can be reused by specifying the provided `mode.name` in `scrattch.taxonomy::mappingMode()` as discussed next.**
 
 ```R
-## Setup the taxonomy for patchseqQC to infer off.target contamination
+## Identify the neuronal clusters
+#neuron.cells = AIT.anndata$obs$class!="Non-neuronal and Non-neural"
+
+## Build the mode surrounding these neurons
+#AIT.anndata = buildTaxonomyMode(AIT.anndata, 
+#                                mode.name = "patchseq", 
+#                                highly_variable_genes = 1000,
+#                                embeddings = "highly_variable_genes_patchseq",
+#                                retain.cells = neuron.cells, 
+#                                subsample = 100, 
+#                                add.dendrogram.markers = TRUE, 
+#                                addMapMyCells = TRUE,
+#                                overwrite = TRUE)
+								
+## Add the patch-seq specific components to the taxonomy (see note below)
 AIT.anndata = buildPatchseqTaxonomy(
                  AIT.anndata,
                  mode.name = "patchseq", ## Give a name to off.target filtered taxonomy
                  subsample = 100, ## Subsampling for the new taxonomy.
-                 subclass.column = "subclass_label", 
-                 class.column = "class_label", ## The column by which off-target types are determined.
+                 subclass.column = "subclass", 
+                 class.column = "class", ## The column by which off-target types are determined.
                  off.target.types = c("Non-neuronal and Non-neural"), ## The off-target class.column labels for patchseqQC.
                  subclass.subsample = 100, ## Subsampling is for PatchseqQC contamination calculation.
                  num.markers = 50, ## Number of markers for each annotation in `class_label`
                  taxonomyDir = taxonomyDir ## Replace with location to store taxonomy
 ) 
+
+## For some reason adding MapMyCells functionality above doesn't work, so need to do it again
+#AIT.anndata = mappingMode(AIT.anndata, mode="patchseq")
+#AIT.anndata = addMapMyCells(AIT.anndata, hierarchy = setNames(0:2,as.character(hierarchy)),force=TRUE) 
 ```
 
 The `buildPatchseqTaxonomy` function does the following, updating the anndata variable and file accordingly:
@@ -176,7 +215,7 @@ query.logCPM = datPatch # logCPM values for all cells from the paper
 
 ### 2.2: Set scrattch.mapping mode
 
-**Do not skip this step!** Here we set taxonomy mode to the relevant "child" taxonomy defined in 1.3 above.  This will let the mapping functions know to  only consider the unfiltered cells and cell types (e.g., use subsetted cells from neuronal clusters for Patch-seq mapping).
+**Do not skip this step!** Here we set taxonomy mode to the relevant "child" taxonomy defined in 1.4 above.  This will let the mapping functions know to  only consider the unfiltered cells and cell types (e.g., use subsetted cells from neuronal clusters for Patch-seq mapping).
 
 ```R
 AIT.anndata = mappingMode(AIT.anndata, mode="patchseq")
@@ -192,9 +231,11 @@ query.mapping = taxonomy_mapping(AIT.anndata= AIT.anndata,
                                  query.data = query.logCPM,
                                  label.cols = hierarchy,  # Will default to AIT.anndata$uns$hierarchy if not provided
                                  corr.map   = TRUE, # Flags for which mapping algorithms to run
-                                 tree.map   = TRUE, 
+                                 tree.map   = TRUE,
+                                 mapmycells.hierarchical.map = TRUE,
+                                 mapmycells.flat.map = TRUE,
                                  seurat.map = TRUE,
-                                 hierarchical.map = TRUE)
+                                 mapmycells_params_list = list())
 
 ## If you want the mapping data.frame and associated scores from the S4 mappingClass
 mapping.results = getMappingResults(query.mapping, scores=TRUE)
@@ -216,7 +257,7 @@ More specifically, the function buildMappingDirectory:
 updated.query.anno <- buildMappingDirectory(
     AIT.anndata    = AIT.anndata, 
     mappingFolder  = file.path(taxonomyDir,"patchseq"),  ## Put the correct file path for output here
-    query.data     = query.logCPM,  ## Counts are required here (NOT cpm or logCPM), but it will convert to linear space automatically
+    query.data     = 2^query.logCPM-1,  ## Counts are required here (NOT cpm or logCPM), but it will convert to linear space automatically
     query.metadata = query.anno,
     query.mapping  = query.mapping, ## This has to be an S4 mappingClass from scrattch.mapping.
     doPatchseqQC   = TRUE,  ## Set to FALSE if not needed or if buildPatchseqTaxonomy was not run.

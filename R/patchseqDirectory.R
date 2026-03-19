@@ -24,6 +24,7 @@
 #' 
 #' @import reticulate
 #' @import Matrix
+#' @import uwot
 #' 
 #' @export
 buildMappingDirectory = function(AIT.anndata, 
@@ -228,11 +229,16 @@ buildMappingDirectory = function(AIT.anndata,
     }
     reference.logcpm <- reference.logcpm[,(!bad.cells)&(umap.ref.cells)]
     
+    ## Define pcs and UMAP space using the reference PCs
+    npcs           <- min(30,length(binary.genes))
+    ref.pca.obj    <- prcomp(as.matrix(t(reference.logcpm)), scale = TRUE)
+    ref_dense_pcs  <- as.matrix(ref.pca.obj$x[, 1:npcs])
+    reference.umap <- uwot::umap(ref_dense_pcs, ret_model = TRUE, init="random")
+    reference.umap$embedding <- ref.umap[rownames(reference.umap$embedding),]
+    
     ## Project mapped data into existing umap space
-    reference.pcs    <- prcomp(reference.logcpm, scale = TRUE)$rotation
-    reference.umap   <- umap(reference.pcs[,1:npcs])
-    reference.umap$layout <- ref.umap[rownames(reference.umap$layout),]
-    query.umap <- predict(reference.umap, query.pcs[,1:npcs])
+    query.pcs  <- predict(ref.pca.obj, newdata = t(logCPM(query.cpm)[binary.genes,]))
+    query.umap <- uwot::umap_transform(query.pcs[, 1:npcs], reference.umap)
   } else {
     ## Calculate a UMAP based on PCS of variable genes
     query.umap <- umap(query.pcs[,1:npcs])$layout
