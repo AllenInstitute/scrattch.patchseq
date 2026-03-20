@@ -5,7 +5,7 @@ In this tutorial we demonstrate how to setup an Allen Institute Taxonomy object 
 
 The second component of this tutorial is for building and mapping to the patch-seq taxonomy. Specifically, we create a child taxonomy only including neuronal cells which includes all relevant statistics and QC metrics, and map query Patch-seq data from [Berg et al 2020](https://www.nature.com/articles/s41586-021-03813-8) to reference cells types using multiple algorithms. This example is more detailed (and more up to date) than the other example and also includes a bit more explanatory text, and does not assume you've created the taxonomy yet. If you are bringing your own data to the tutorial you can replace all sections that say "**FOR EXAMPLE ONLY**" with your own data munging steps. 
 
-*We strongly encourage running this code within the scrattch docker environment.  This example was created using docker://alleninst/scrattch:1.1.4.1 and will likely fail if run using any earlier scrattch versions.* 
+*We strongly encourage running this code within the scrattch docker environment.  This example was created using docker://alleninst/scrattch:1.1.5 and will likely fail if run using any earlier scrattch versions.* 
 
 For creating a standard taxonomy and mapping against it, the following input variables are required: 
 
